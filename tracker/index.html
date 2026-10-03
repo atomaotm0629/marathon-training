@@ -181,6 +181,13 @@ label.btn{display:inline-block;width:auto}
   white-space:pre-wrap}
 .detail .seen b{color:var(--ink)}
 .detail .saved{font-size:11px;color:var(--leaf);margin:6px 0 0;min-height:15px}
+.detail .shopt{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;margin:8px 0 10px}
+.detail .shopt label{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:4px}
+.detail .shopt input{width:auto}
+.detail .card{display:block;width:100%;max-width:360px;height:auto;margin:10px 0 0;
+  border:1px solid var(--line);border-radius:var(--r)}
+.detail .cap{min-height:96px;font-family:inherit;font-size:13px;line-height:1.6;margin-top:10px}
+.detail .shrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .bar-i{display:block;height:9px;border-radius:2px;background:var(--leaf)}
 .sub-note{font-size:12px;color:var(--ink-2);margin:8px 0 0}
 .sub-note b{color:var(--ink)}
@@ -612,6 +619,8 @@ const LOCAL_ONLY='この端末のブラウザ内にだけ保存しています�
 async function initSync(){
   const c=await waitClaude(10000);
   if(!c){ syncNote(LOCAL_ONLY); return; }            /* ファイルとして開いている */
+  try{ DL=await c.use("downloads"); }catch(e){ DL=null; }
+  if(DL&&shareLid)paintShare();
   try{ DB=await c.use("db"); }catch(e){ DB=null; }
   if(!DB){ syncNote(LOCAL_ONLY); return; }
   dbOn=true;
@@ -1188,6 +1197,9 @@ let openLog=null, delArm=null, delTimer=null;
 /* 詳細の中の入力。打っている最中に画面を作り直すと入力中の欄から
    カーソルが外れるので、入力が終わるまで作り直しを待たせる */
 let editing=null, pendingRender=false, editTimer=null;
+/* 投稿用の画像。開いている記録と、何を載せるかの選択を覚えておく */
+let shareLid=null, shareCap=null, DL=null;
+const shareOpt={hr:true,cad:true,sp:true};
 
 /* 取り込み時に計算しておいた解析を、表とバーで見せる */
 /* 記録そのものに振り返りを残せるようにする。入力した時点で保存し、同期もする */
@@ -1218,7 +1230,7 @@ function detailHtml(l){
 
   if(l.note)H.push('<h4>コーチの所見</h4><div class="seen">'+esc(l.note)+'</div>');
   H.push(editHtml(l));
-  if(!(a&&a.sp&&a.sp.length))return H.join("");
+  if(!(a&&a.sp&&a.sp.length))return H.join("")+shareHtml(l);
 
   if(a.st){
     const mvPace=(l.dist>0&&a.mv)?a.mv/l.dist:null;
@@ -1301,7 +1313,209 @@ function detailHtml(l){
       (pct>=79?'ジョグとして走るなら、平均心拍を '+ec+' 拍以下に収めてください。':''));
   }
   if(fin.length)H.push('<h4>判定</h4>'+fin.map(x=>'<p class="note">'+x+'</p>').join(""));
+  H.push(shareHtml(l));
   return H.join("");
+}
+
+/* SNSに上げるための画像をその場で作る。画像はこの端末の中で描いていて、
+   どこにも送信されない。投稿するかどうかは本人が決める */
+function shareHtml(l){
+  const ck=(k,nm)=>'<label><input type="checkbox" data-sh="'+k+'"'+
+    (shareOpt[k]?' checked':'')+'>'+nm+'</label>';
+  const on=shareLid===l.lid;
+  return '<h4>投稿用の画像</h4>'+
+    '<div class="shopt">'+ck("hr","心拍")+ck("cad","ピッチ")+ck("sp","1 kmごと")+'</div>'+
+    '<button class="btn btn-sm" type="button" data-share="'+l.lid+'">'+
+      (on?"作り直す":"画像を作る")+'</button>'+
+    '<div id="shareOut"></div>'+
+    '<p class="hint">画像はこの端末の中だけで作っています。'+
+    '<b>位置情報・走ったコース・開始時刻は入りません。</b>'+
+    '体重と所見も入りません。心拍は健康に関する情報なので、'+
+    '出したくなければ上のチェックを外してください。</p>';
+}
+
+/* ---------- 投稿用の画像を描く ---------- */
+function drawCard(l){
+  const an0=l.an;
+  const useSp=!!(shareOpt.sp&&an0&&an0.sp&&an0.sp.length>1);
+  const W=1080, H=useSp?1350:1080, M=84;
+  const cv=document.createElement("canvas");
+  cv.width=W; cv.height=H;
+  const g=cv.getContext("2d");
+  const SANS='"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif';
+  const MONO='ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace';
+  const SERIF='"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","Times New Roman",serif';
+  const INK="#231F1C", INK2="#55504A", INK3="#857E76", LINE="#DAD5CD",
+        ACC="#B23B2E", LEAF="#4A7355", PAPER="#F4F2EF";
+  const a=l.an, t=TYPE(l.type);
+  const rule=y=>{g.strokeStyle=LINE;g.lineWidth=2;g.beginPath();
+    g.moveTo(M,y+0.5);g.lineTo(W-M,y+0.5);g.stroke();};
+
+  g.fillStyle=PAPER; g.fillRect(0,0,W,H);
+  g.fillStyle=ACC;   g.fillRect(0,0,12,H);
+  g.textBaseline="alphabetic";
+
+  /* 見出し */
+  let y=M+44;
+  g.font='500 36px '+MONO; g.fillStyle=INK3;
+  g.fillText(l.date.replace(/-/g,"/"), M, y);
+  g.font='500 34px '+SANS; g.fillStyle=INK2; g.textAlign="right";
+  g.fillText(t.nm, W-M, y);
+  g.textAlign="left";
+  y+=30; rule(y);
+
+  /* 主役の数字。走る種別は距離、走らない種別（クロス・補強）は時間 */
+  y+=176;
+  const isRun=t.run&&l.dist>0;
+  const ds=isRun?r1(l.dist).toFixed(1):fmtSec(l.sec);
+  g.font=(isRun?'700 190px ':'700 150px ')+SANS; g.fillStyle=INK;
+  g.fillText(ds, M, y);
+  const dw=g.measureText(ds).width;
+  if(isRun){
+    g.font='400 58px '+SANS; g.fillStyle=INK3;
+    g.fillText("km", M+dw+20, y);
+  }
+
+  /* 数字の列 */
+  const mvP=(a&&a.mv>0&&l.dist>0)?a.mv/l.dist:null;
+  const cells=[];
+  if(isRun&&l.sec)cells.push(["時間", fmtSec(l.sec)]);
+  if(l.dist>0&&l.sec>0)cells.push(["ペース", fmtPace(l.sec/l.dist)+'/km']);
+  if(shareOpt.hr&&l.hr)cells.push(["平均心拍", l.hr+" bpm"]);
+  if(shareOpt.cad&&l.cad)cells.push(["ピッチ", l.cad+" spm"]);
+  y+=cells.length?72:0;
+  const cols=Math.max(1,Math.min(2,cells.length));
+  const rows=Math.ceil(cells.length/cols);
+  const cw=(W-M*2)/cols, rowH=104;
+  cells.forEach((c,i)=>{
+    const x=M+cw*(i%cols), yy=y+rowH*Math.floor(i/cols);
+    g.font='500 26px '+SANS; g.fillStyle=INK3;
+    g.fillText(c[0], x, yy);
+    g.font='600 52px '+MONO; g.fillStyle=INK;
+    g.fillText(c[1], x, yy+56);
+  });
+  if(cells.length)y+=rowH*(rows-1)+56;
+  if(mvP&&a.st>=30){
+    y+=44;
+    g.font='400 28px '+SANS; g.fillStyle=INK3;
+    g.fillText("停止 "+fmtSec(a.st)+" を除くと "+fmtPace(mvP)+"/km", M, y);
+  }
+  y+=38; rule(y);
+
+  /* 1 kmごと */
+  const sp=useSp?a.sp:null;
+  const footTop=H-M-96;
+  if(sp){
+    y+=54;
+    g.font='500 26px '+SANS; g.fillStyle=INK3;
+    g.fillText("1 kmごとのペース", M, y);
+    y+=26;
+    const full=sp.filter(x=>!x[5]);
+    const fast=Math.min.apply(null, full.map(x=>x[1]));
+    const slow=Math.max.apply(null, full.map(x=>x[1]));
+    const avail=footTop-y-20;
+    if(sp.length<=12){
+      /* 横棒。長さは速度に比例させ、0を基準にする（差を誇張しない） */
+      const rh=Math.min(58, Math.floor(avail/sp.length));
+      const x0=M+58, x1=W-M-190, bw=x1-x0;
+      sp.forEach((v,i)=>{
+        const by=y+rh*i+Math.floor(rh*0.18), bh=Math.max(10,Math.floor(rh*0.52));
+        g.font='400 24px '+MONO; g.fillStyle=INK3; g.textAlign="right";
+        g.fillText(v[5]?"":String(v[0]), M+42, by+bh-2);
+        g.textAlign="left";
+        const w=Math.max(6, Math.round(bw*(fast/v[1])));
+        g.fillStyle=v[5]?LINE:(v[1]===fast?LEAF:ACC);
+        g.fillRect(x0, by, w, bh);
+        g.font='500 30px '+MONO; g.fillStyle=INK2;
+        g.fillText(fmtPace(v[1]), x1+22, by+bh-1);
+        if(v[4]>=10){
+          g.font='400 20px '+SANS; g.fillStyle=INK3;
+          g.fillText("停"+v[4]+"s", x0+w+10, by+bh-3);
+        }
+      });
+      y+=rh*sp.length;
+    }else{
+      /* 本数が多いときは縦棒にまとめる */
+      const bh=Math.min(300, avail);
+      const bw=Math.floor((W-M*2)/sp.length);
+      sp.forEach((v,i)=>{
+        const h2=Math.max(6, Math.round(bh*(fast/v[1])));
+        g.fillStyle=v[5]?LINE:(v[1]===fast?LEAF:ACC);
+        g.fillRect(M+bw*i, y+bh-h2, Math.max(3,bw-4), h2);
+      });
+      y+=bh+36;
+      g.font='400 26px '+SANS; g.fillStyle=INK3;
+      g.fillText("最速 "+fmtPace(fast)+" ／ 最遅 "+fmtPace(slow), M, y);
+    }
+  }
+
+  if(!sp){
+    /* グラフが無いときは、積み上げを出して間を埋める */
+    y+=54;
+    g.font='500 26px '+SANS; g.fillStyle=INK3;
+    g.fillText("ここまでの積み上げ", M, y);
+    y+=92;
+    const wk=weekAgg().get(weekStart(l.date));
+    const tot=state.logs.reduce((n,x)=>TYPE(x.type).run?n+x.dist:n,0);
+    const lng=state.logs.reduce((n,x)=>TYPE(x.type).run&&x.dist>n?x.dist:n,0);
+    const c2=[["この週", r1(wk?wk.dist:0)+" km"],
+              ["累計",   Math.round(tot)+" km"],
+              ["最長走", r1(lng)+" km"]];
+    const cw2=(W-M*2)/3;
+    c2.forEach((c,i)=>{
+      const x=M+cw2*i;
+      g.font='500 26px '+SANS; g.fillStyle=INK3; g.fillText(c[0], x, y-50);
+      g.font='600 50px '+MONO; g.fillStyle=INK; g.fillText(c[1], x, y);
+    });
+  }
+
+  /* 足もと */
+  rule(footTop);
+  const d=dnum(state.cfg.raceDate);
+  g.font='500 34px '+SERIF; g.fillStyle=INK2;
+  g.fillText("京都マラソン2027", M, footTop+56);
+  g.font='600 46px '+MONO; g.fillStyle=ACC; g.textAlign="right";
+  g.fillText(d>0?("D-"+d):(d===0?"当日":"完"), W-M, footTop+58);
+  g.textAlign="left";
+  return cv;
+}
+
+function capFor(l){
+  const L=[];
+  const t=TYPE(l.type);
+  L.push(l.date.replace(/-/g,"/")+"　"+t.nm+"　"+r1(l.dist).toFixed(1)+" km");
+  const sub=[];
+  if(l.sec)sub.push(fmtSec(l.sec));
+  if(l.dist>0&&l.sec>0)sub.push(fmtPace(l.sec/l.dist)+"/km");
+  if(shareOpt.hr&&l.hr)sub.push("平均心拍 "+l.hr);
+  if(shareOpt.cad&&l.cad)sub.push("ピッチ "+l.cad);
+  if(sub.length)L.push(sub.join("　"));
+  const d=dnum(state.cfg.raceDate);
+  if(d>0)L.push("", "京都マラソン2027まで あと"+d+"日");
+  L.push("", "#ランニング #マラソン練習 #京都マラソン #ランニング初心者 #running");
+  return L.join("\n");
+}
+
+/* 画像は renderLogs のあとに描き直す。再描画で消えないようにするため */
+function paintShare(){
+  const box=document.getElementById("shareOut");
+  if(!box)return;
+  if(shareLid===null){box.innerHTML="";return;}
+  const l=state.logs.find(x=>x.lid===shareLid);
+  if(!l){box.innerHTML="";return;}
+  let url;
+  try{ url=drawCard(l).toDataURL("image/png"); }
+  catch(e){ box.innerHTML='<p class="note">この画面では画像を作れませんでした。</p>'; return; }
+  if(shareCap===null)shareCap=capFor(l);
+  box.innerHTML='<img class="card" alt="投稿用の画像" src="'+url+'">'+
+    '<p class="hint" style="margin-top:6px">スマホは画像を長押しして保存できます。'+
+    'そのあとInstagramを開いて投稿してください。</p>'+
+    '<textarea class="cap" data-cap spellcheck="false"></textarea>'+
+    '<div class="shrow">'+
+      '<button class="btn btn-sm" type="button" data-capcopy>説明文をコピー</button>'+
+      (DL?'<button class="btn btn-sm" type="button" data-dl>画像を保存</button>':'')+
+    '</div><p class="hint" data-shmsg></p>';
+  box.querySelector("[data-cap]").value=shareCap;
 }
 
 function renderLogs(){
@@ -1344,6 +1558,7 @@ function renderLogs(){
       (open?'<div class="detail">'+detailHtml(l)+'</div>':'')+
       '</li>';
   }).join("");
+  paintShare();
 }
 
 function renderShoes(){
@@ -1827,6 +2042,7 @@ $("#logs").addEventListener("click",e=>{
   const x=e.target.closest("[data-exp]");
   if(x&&!e.target.closest("[data-del]")){
     openLog=(openLog===x.dataset.exp)?null:x.dataset.exp;
+    if(openLog!==shareLid){shareLid=null;shareCap=null;}
     renderLogs();
     return;
   }
@@ -1863,6 +2079,12 @@ function flashSaved(lid){
   clearTimeout(el._t);
   el._t=setTimeout(()=>{if(el.textContent==="保存しました")el.textContent="";},1600);
 }
+$("#logs").addEventListener("change",e=>{
+  const c=e.target.closest("[data-sh]");
+  if(!c)return;
+  shareOpt[c.dataset.sh]=c.checked;
+  if(shareLid){shareCap=null;paintShare();}
+});
 $("#logs").addEventListener("input",e=>{
   const el=e.target.closest("[data-edit]");
   if(!el)return;
@@ -1878,6 +2100,42 @@ $("#logs").addEventListener("input",e=>{
   clearTimeout(editTimer);
   editTimer=setTimeout(()=>{pushLog(l);flashSaved(l.lid);},600);
 });
+$("#logs").addEventListener("click",e=>{
+  const sh=e.target.closest("[data-share]");
+  if(sh){
+    shareLid=sh.dataset.share; shareCap=null;
+    renderLogs();
+    return;
+  }
+  if(e.target.closest("[data-capcopy]")){
+    const ta=document.querySelector("[data-cap]"), m=document.querySelector("[data-shmsg]");
+    ta.select();
+    navigator.clipboard.writeText(ta.value)
+      .then(()=>{m.textContent="コピーしました。";})
+      .catch(()=>{m.textContent="自動コピーできませんでした。選択してコピーしてください。";});
+    return;
+  }
+  if(e.target.closest("[data-dl]")){
+    const m=document.querySelector("[data-shmsg]"), l=state.logs.find(x=>x.lid===shareLid);
+    if(!DL||!l)return;
+    m.textContent="保存の確認を出しています…";
+    drawCard(l).toBlob(b=>{
+      if(!b){m.textContent="画像を作れませんでした。";return;}
+      DL.save({filename:"kyoto-"+l.date+".png", data:b})
+        .then(()=>{m.textContent="保存しました。";})
+        .catch(err=>{
+          const c=err&&err.code;
+          m.textContent=c==="declined"?"保存を取り消しました。"
+            :c==="rate_limited"?"少し待ってからもう一度押してください。"
+            :"この画面では保存できません。画像を長押しして保存してください。";
+        });
+    },"image/png");
+  }
+});
+$("#logs").addEventListener("input",e=>{
+  if(e.target.closest("[data-cap]"))shareCap=e.target.value;
+});
+
 /* 入力欄から離れたら、待たせていた画面の作り直しをここで行う */
 $("#logs").addEventListener("focusout",e=>{
   if(!e.target.closest("[data-edit]"))return;
