@@ -90,6 +90,8 @@ h2{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.12em;
 h2:not(:first-child){margin-top:28px}
 h2.lead{margin-top:0;font-size:16px;color:var(--ink)}
 .panel.wide{margin-bottom:30px}
+.drive{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--line)}
 .pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
   padding-bottom:12px;margin-bottom:10px;border-bottom:1px solid var(--line)}
 .picklabel{font-size:11px;letter-spacing:.12em;color:var(--ink-3);margin-right:2px}
@@ -287,8 +289,16 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-si
           <input type="file" id="fitFile" accept=".fit,application/octet-stream" multiple hidden>
         </p>
       </div>
-      <p class="hint">ファイルはこの端末のブラウザ内だけで解析され、どこにも送信されません。
-        Googleドライブに置いている場合は、ドライブのフォルダからそのままドロップできます。</p>
+      <p class="hint">ファイルはこの端末のブラウザ内だけで解析され、どこにも送信されません。</p>
+
+      <div id="driveBox" hidden>
+        <div class="drive">
+          <span class="picklabel">Googleドライブ</span>
+          <input type="text" id="fDriveFolder" style="flex:1 1 150px;min-width:0" placeholder="ランニングログ">
+          <button class="btn btn-primary btn-sm" id="driveBtn" type="button">フォルダから取り込む</button>
+        </div>
+        <p class="hint" id="driveNote">このフォルダに入れた .fit を、まとめて読み込みます。</p>
+      </div>
       <div id="fitPreview"></div>
     </div>
 
@@ -624,7 +634,8 @@ async function initSync(){
   },()=>{}));
 }
 
-const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,longDay:6},logs:[]};
+const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,longDay:6,
+  driveFolder:"ランニングログ"},logs:[]};
 let state=load()||JSON.parse(JSON.stringify(DEF));
 function migrate(){
   state.cfg=Object.assign({},DEF.cfg,state.cfg||{});
@@ -633,6 +644,8 @@ function migrate(){
   state.cfg.age=Number(state.cfg.age)||null;
   state.cfg.maxhr=Number(state.cfg.maxhr)||null;
   if(state.cfg.longDay!==5&&state.cfg.longDay!==6)state.cfg.longDay=6;
+  if(typeof state.cfg.driveFolder!=="string"||!state.cfg.driveFolder)
+    state.cfg.driveFolder=DEF.cfg.driveFolder;
   state.logs=Array.isArray(state.logs)?state.logs:[];
   let n=0;
   state.logs.forEach(l=>{
@@ -853,6 +866,8 @@ function renderCfg(){
   $("#fGoal").value=fmtSec(state.cfg.goal);
   $("#fAge").value=state.cfg.age||"";
   $("#fMax").value=state.cfg.maxhr||"";
+  const df=document.getElementById("fDriveFolder");
+  if(df&&document.activeElement!==df)df.value=state.cfg.driveFolder||"";
   document.querySelectorAll(".tierBtn").forEach(b=>{
     b.classList.toggle("btn-primary",b.dataset.tier===state.cfg.tier);
   });
@@ -1415,6 +1430,90 @@ function fitToRecord(s,off,fname,an){
   };
 }
 
+/* ---------- Googleドライブから直接読み込む ----------
+   claude.ai のコネクタを、閲覧している本人の資格で呼ぶ。
+   認証情報はこのページからは見えない。 */
+let MCP=null;
+const DRIVE="Google Drive";
+
+function mcpMsg(e){
+  const c=e&&e.code;
+  if(c==="server_not_connected")
+    return 'Googleドライブが接続されていません。claude.ai の <b>設定 → コネクタ</b> で追加してください。';
+  if(c==="needs_reauth")
+    return 'Googleドライブの接続が切れています。claude.ai の <b>設定 → コネクタ</b> で再接続してください。';
+  if(c==="selection_required")
+    return '同じ名前のコネクタが複数あります。claude.ai 側でどれを使うか選んでください。';
+  if(c==="not_in_manifest")
+    return 'この台帳からのGoogleドライブ利用が許可されていません。ページを開き直して、確認を「許可」してください。';
+  if(c==="blocked_by_policy"||c==="approval_required")
+    return '組織の設定で、この操作が許可されていません。';
+  if(c==="server_unavailable"||c==="rate_limited")
+    return '一時的に応答がありません。少し待ってから、もう一度押してください。';
+  if(c==="cancelled")return '中断されました。';
+  if(c==="tool_error")return 'ドライブ側がエラーを返しました：'+esc(String(e.message||""));
+  return '読み込めませんでした（'+esc(String(c||"不明"))+'）。';
+}
+
+async function driveCall(tool,input){
+  const r=await MCP.callTool(DRIVE,tool,input);
+  return r&&r.payload!=null?r.payload:r;
+}
+function b64ToBuf(b64){
+  const bin=atob(b64), n=bin.length, u=new Uint8Array(n);
+  for(let i=0;i<n;i++)u[i]=bin.charCodeAt(i);
+  return u.buffer;
+}
+
+async function importFromDrive(){
+  const note=$("#driveNote"), btn=$("#driveBtn");
+  const folder=(state.cfg.driveFolder||"").trim();
+  if(!folder){note.innerHTML='フォルダ名を入れてください。';return;}
+  btn.disabled=true; note.innerHTML='ドライブを見ています…';
+  try{
+    const esc2=folder.replace(/'/g,"\\'");
+    const fr=await driveCall("search_files",
+      {query:"title = '"+esc2+"' and mimeType = 'application/vnd.google-apps.folder'",
+       excludeContentSnippets:true});
+    const dir=(fr&&fr.files||[])[0];
+    if(!dir){note.innerHTML='「'+esc(folder)+'」というフォルダが見つかりません。名前を確認してください。';return;}
+
+    const lr=await driveCall("search_files",
+      {query:"parentId = '"+dir.id+"'", excludeContentSnippets:true, pageSize:100});
+    const fits=(lr&&lr.files||[]).filter(f=>/\.fit$/i.test(f.title||""));
+    if(!fits.length){note.innerHTML='このフォルダに .fit がありません。';return;}
+
+    const have=new Set(state.logs.map(l=>l.file).filter(Boolean));
+    const todo=fits.filter(f=>!have.has(f.title));
+    if(!todo.length){
+      note.innerHTML='新しい記録はありません（'+fits.length+'件すべて取り込み済み）。';return;
+    }
+    pending=[]; const errs=[];
+    for(let i=0;i<todo.length;i++){
+      const f=todo[i];
+      note.innerHTML='読み込み中… '+(i+1)+' / '+todo.length+'（'+esc(f.title)+'）';
+      try{
+        const d=await driveCall("download_file_content",{fileId:f.id});
+        const ab=b64ToBuf(d.content);
+        const {sessions,recs,act}=parseFit(ab);
+        if(!sessions.length)throw new Error("走行のまとめが入っていません");
+        let off=-new Date().getTimezoneOffset()*60;
+        if(act&&act[5]!=null&&act[253]!=null)off=act[5]-act[253];
+        const an=(sessions.length===1&&recs.length)?analyzeFit(recs,sessions[0]):null;
+        sessions.forEach((sn,k)=>{
+          const r=fitToRecord(sn,off,f.title,k===0?an:null);
+          if(r)pending.push(r);
+        });
+      }catch(e){errs.push(f.title+"："+(e&&e.message||e&&e.code||"読めません"));}
+    }
+    note.innerHTML=todo.length+'件を読みました。下の表で種別を確かめて取り込んでください。'+
+      (errs.length?'<br><span style="color:var(--alert)">'+esc(errs.join(" ／ "))+'</span>':'');
+    renderPending();
+  }catch(e){
+    note.innerHTML='<span style="color:var(--alert)">'+mcpMsg(e)+'</span>';
+  }finally{ btn.disabled=false; }
+}
+
 let pending=[];
 function isDup(r){
   return state.logs.some(l=>
@@ -1448,6 +1547,14 @@ async function readFitFiles(files){
       (errs.length?esc(errs.join(" ／ ")):"読み取れる記録がありませんでした。")+'</p>';
     return;
   }
+  renderPending(errs);
+}
+
+function renderPending(errs){
+  errs=errs||[];
+  const box=$("#fitPreview");
+  pending.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(!pending.length){box.innerHTML="";return;}
   let h='<div class="tbl-wrap"><table><thead><tr><th></th><th>日付</th>'+
     '<th class="num">距離</th><th class="num">時間</th><th class="num">ペース</th>'+
     '<th class="num">心拍</th><th class="num">ピッチ</th><th>種別</th><th class="num">RPE</th>'+
@@ -1511,6 +1618,33 @@ $("#fitPreview").addEventListener("click",e=>{
   $("#fitFile").value="";
   render();
 });
+
+$("#driveBtn").addEventListener("click",importFromDrive);
+$("#fDriveFolder").addEventListener("change",e=>{
+  const v=e.target.value.trim();
+  if(v){state.cfg.driveFolder=v;save();cfgChanged();}
+  else e.target.value=state.cfg.driveFolder;
+});
+
+/* コネクタが使える view でだけ、ドライブの欄を出す */
+async function initDrive(){
+  const c=await waitClaude(10000);
+  if(!c)return;
+  try{ MCP=await c.use("mcp"); }catch(e){ MCP=null; }
+  if(!MCP)return;
+  $("#fDriveFolder").value=state.cfg.driveFolder;
+  $("#driveBox").hidden=false;
+  try{
+    const lt=await MCP.listTools(DRIVE);
+    const sv=(lt&&lt.servers||[])[0];
+    if(!sv)
+      $("#driveNote").innerHTML=
+        'Googleドライブが接続されていません。claude.ai の <b>設定 → コネクタ</b> で追加すると使えます。';
+    else if(sv.authStatus==="needs_reauth")
+      $("#driveNote").innerHTML=
+        'Googleドライブの接続が切れています。claude.ai の <b>設定 → コネクタ</b> で再接続してください。';
+  }catch(e){ /* 一覧が取れなくても、押せば結果は分かる */ }
+}
 
 $("#fitFile").addEventListener("change",e=>{
   if(e.target.files&&e.target.files.length)readFitFiles([...e.target.files]);
@@ -1683,6 +1817,7 @@ $("#restoreBtn").addEventListener("click",()=>{
 
 render();
 initSync();
+initDrive();
 </script>
 </body>
 </html>
