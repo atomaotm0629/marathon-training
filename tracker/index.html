@@ -1,0 +1,1688 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>京都マラソン2027 練習台帳</title>
+<style>
+/* 外部のフォントは読み込まない。CDNに接続するだけで、
+   この台帳を開いたことと接続元が相手に伝わるため（記録の中身は送られないが、
+   それでも外に出る情報をゼロにする方針）。端末にあるフォントだけで組む。 */
+:root{
+  --paper:#F4F2EF; --surface:#FCFBF9; --surface-2:#EAE6E0;
+  --ink:#231F1C; --ink-2:#55504A; --ink-3:#857E76; --line:#DAD5CD;
+  --accent:#B23B2E; --accent-soft:#F3E3DF; --water:#2E5C7A;
+  --leaf:#4A7355; --warn:#A2670F; --alert:#A33224;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+  --sans:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --serif:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","Times New Roman",serif;
+  --r:3px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#171614; --surface:#1E1D1A; --surface-2:#282623;
+    --ink:#E9E6E0; --ink-2:#B0ABA3; --ink-3:#807A72; --line:#353230;
+    --accent:#E28C7E; --accent-soft:#36211E; --water:#7FAFC9;
+    --leaf:#8CB295; --warn:#D8A45B; --alert:#E08A78;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#171614; --surface:#1E1D1A; --surface-2:#282623;
+  --ink:#E9E6E0; --ink-2:#B0ABA3; --ink-3:#807A72; --line:#353230;
+  --accent:#E28C7E; --accent-soft:#36211E; --water:#7FAFC9;
+  --leaf:#8CB295; --warn:#D8A45B; --alert:#E08A78;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:0 64px}
+a{color:var(--accent)}
+button{font-family:inherit;font-size:14px;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink);
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;width:100%}
+input[type="date"],input[type="number"]{font-family:var(--mono)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+header{border-bottom:1px solid var(--line);margin-bottom:24px}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;padding-block:30px 18px}
+h1{font-family:var(--serif);font-weight:700;font-size:clamp(24px,4.6vw,34px);
+  letter-spacing:.06em;margin:0;line-height:1.25;text-wrap:balance}
+h1 .dot{color:var(--accent)}
+.tagline{color:var(--ink-2);font-size:13px;margin:0;flex:1 1 240px;min-width:0}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--surface);border:1px solid var(--line);color:var(--ink-2);
+  border-radius:var(--r);padding:6px 12px;transition:border-color .15s,color .15s;width:auto}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#FCFBF9;font-weight:700}
+:root[data-theme="dark"] .btn-primary,
+:root:not([data-theme="light"]) .btn-primary{color:#1B1210}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .btn-primary{color:#FCFBF9}}
+.btn-primary:hover{color:inherit;filter:brightness(1.08)}
+.btn-sm{padding:3px 8px;font-size:12px}
+
+.summary{display:flex;flex-wrap:wrap;gap:0;border-block:1px solid var(--line);margin-bottom:22px}
+.stat{flex:1 1 110px;padding:12px 16px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0;padding-left:0}
+.stat dt{font-size:11px;letter-spacing:.14em;color:var(--ink-3);margin:0}
+.stat dd{margin:2px 0 0;font-family:var(--mono);font-size:22px;font-weight:600;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.stat dd small{font-size:12px;font-weight:400;color:var(--ink-3);margin-left:2px}
+
+.banner{display:block;background:var(--accent-soft);border-left:3px solid var(--accent);
+  padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--ink-2)}
+.banner b{color:var(--ink)}
+.banner[hidden]{display:none}
+.banner.alert{background:var(--surface-2);border-left-color:var(--alert)}
+.banner.alert b{color:var(--alert)}
+.banner ul{margin:6px 0 0;padding-left:1.2em}
+.banner li{margin:2px 0}
+
+.cols{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px;align-items:start}
+.cols>*{min-width:0}
+.panel{min-width:0}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr);gap:26px}}
+h2{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.12em;
+  margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink-2)}
+h2:not(:first-child){margin-top:28px}
+h2.lead{margin-top:0;font-size:16px;color:var(--ink)}
+.panel.wide{margin-bottom:30px}
+.pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  padding-bottom:12px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.picklabel{font-size:11px;letter-spacing:.12em;color:var(--ink-3);margin-right:2px}
+.picklabel:not(:first-child){margin-left:10px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:6px}
+.hint{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;letter-spacing:.12em;color:var(--ink-3);margin-bottom:3px}
+.row{display:grid;gap:10px}
+.row.c2{grid-template-columns:1fr 1fr}
+.row.c3{grid-template-columns:1fr 1fr 1fr}
+@media (max-width:480px){.row.c3{grid-template-columns:1fr 1fr}}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.1em;color:var(--ink-3);font-weight:500}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:0}
+.tbl-wrap{overflow-x:auto;max-width:100%}
+
+.chartwrap{overflow-x:auto;max-width:100%}
+svg.chart{display:block;min-width:520px}
+svg.chart text{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--ink-3);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:-1px}
+
+.loglist{list-style:none;margin:0;padding:0}
+.logitem{display:grid;grid-template-columns:4px 1fr auto;gap:0 12px;align-items:center;
+  border-bottom:1px solid var(--line)}
+.logitem .stripe{align-self:stretch;background:var(--tc,var(--line))}
+.logitem .body{padding:9px 0;min-width:0}
+.logitem .l1{font-size:13px;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline}
+.logitem .d{font-family:var(--mono);font-weight:600;letter-spacing:.03em}
+.logitem .t{font-size:11px;letter-spacing:.08em;padding:0 7px;border-radius:99px;
+  border:1px solid var(--tc,var(--line));color:var(--tc,var(--ink-2))}
+.logitem .l2{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logitem .n{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;text-align:right;
+  padding-right:8px;white-space:nowrap}
+.logitem .n small{color:var(--ink-3);font-size:11px}
+.del{background:none;border:0;color:var(--ink-3);font-size:16px;line-height:1;padding:4px 6px;width:auto}
+.del:hover{color:var(--alert)}
+.del-arm{font-size:12px;color:var(--alert);border:1px solid var(--alert);
+  border-radius:var(--r);padding:2px 8px}
+
+.pill{display:inline-block;font-size:11px;letter-spacing:.06em;padding:1px 8px;border-radius:99px;
+  border:1px solid var(--line);color:var(--ink-2);margin-right:6px}
+.pill.on{border-color:var(--accent);color:var(--accent)}
+.empty{color:var(--ink-3);font-size:13px;padding:14px 0}
+.drop{border:1px dashed var(--line);border-radius:var(--r);padding:18px 14px;text-align:center;
+  color:var(--ink-2);transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop p{margin:0}
+.drop .hint{margin-top:6px}
+label.btn{display:inline-block;width:auto}
+.fitrow td{vertical-align:middle}
+#menuTbl td{vertical-align:top}
+#menuTbl tr.rest{color:var(--ink-3)}
+#menuTbl tr.today td{background:var(--accent-soft)}
+#menuTbl .wd{font-weight:700;white-space:nowrap}
+#menuTbl .sub{font-size:12px;color:var(--ink-3)}
+#menuTbl .ok{color:var(--leaf);font-weight:700}
+.logitem .body{cursor:default}
+.logitem .body[data-exp]{cursor:pointer}
+.logitem .body[data-exp]:hover .d{color:var(--accent)}
+.logitem .caret{font-size:10px;color:var(--ink-3);margin-left:4px}
+.detail{grid-column:1/-1;padding:4px 0 16px;border-top:1px dashed var(--line);margin-top:2px}
+.detail h4{font-size:11px;letter-spacing:.12em;color:var(--ink-3);font-weight:500;
+  margin:14px 0 6px}
+.detail h4:first-child{margin-top:10px}
+.detail table{font-size:12px}
+.detail th,.detail td{padding:3px 6px}
+.detail .zbar{display:grid;grid-template-columns:auto 62px 46px minmax(0,1fr);gap:0 8px;
+  align-items:center;font-size:12px;line-height:2.1}
+.detail .zbar>span{white-space:nowrap}
+.detail .zbar i{display:block;height:9px;background:var(--z,var(--line));border-radius:2px}
+.detail .note{font-size:12px;color:var(--ink-2);margin:6px 0 0}
+.detail .note b{color:var(--ink)}
+.detail .warn{color:var(--warn)}
+.fitrow input,.fitrow select{padding:4px 6px;font-size:13px}
+.fitrow.dup{color:var(--ink-3)}
+.dumpbox{display:none}
+.dumpbox[open]{display:block}
+textarea{min-height:150px;font-family:var(--mono);font-size:12px;line-height:1.5}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="head">
+    <h1>京都マラソン<span class="dot">2027</span> 練習台帳</h1>
+    <p class="tagline">2027年2月21日（日）／制限時間6時間<br>記録はこの端末のブラウザ内にのみ保存されます。</p>
+    <div class="tools">
+      <button class="btn" id="themeBtn" type="button">表示</button>
+      <button class="btn" id="dumpBtn" type="button">バックアップ</button>
+      <button class="btn" id="csvBtn" type="button">CSV</button>
+    </div>
+  </div>
+</header>
+
+<dl class="summary" id="summary"></dl>
+
+<div class="banner alert" id="storeWarn" hidden></div>
+<div class="banner" id="weekBanner" hidden></div>
+<div class="banner alert" id="alertBanner" hidden></div>
+
+<details class="panel dumpbox" id="dumpPanel">
+  <summary style="cursor:pointer;font-size:13px;color:var(--ink-2)">バックアップ／復元</summary>
+  <p class="hint">下のテキストをコピーして保存しておけば、別の端末やブラウザに貼り付けて復元できます。</p>
+  <textarea id="dump" spellcheck="false"></textarea>
+  <div class="row c2" style="margin-top:8px">
+    <button class="btn" id="copyBtn" type="button">コピー</button>
+    <button class="btn" id="restoreBtn" type="button">この内容で復元</button>
+  </div>
+  <p class="hint" id="msg"></p>
+</details>
+
+<h2 class="lead">今週のメニュー</h2>
+<div class="panel wide">
+  <div class="pick">
+    <span class="picklabel">プラン</span>
+    <button class="btn btn-sm tierBtn" data-tier="A" type="button">A 完走</button>
+    <button class="btn btn-sm tierBtn" data-tier="B" type="button">B サブ5</button>
+    <button class="btn btn-sm tierBtn" data-tier="C" type="button">C サブ4</button>
+    <span class="picklabel">ロング走</span>
+    <button class="btn btn-sm dayBtn" data-day="5" type="button">土曜</button>
+    <button class="btn btn-sm dayBtn" data-day="6" type="button">日曜</button>
+  </div>
+  <div class="tbl-wrap"><table id="menuTbl"></table></div>
+  <p class="hint" id="menuNote"></p>
+</div>
+
+<div class="cols">
+
+  <!-- ============ 左カラム ============ -->
+  <div>
+    <h2>設定</h2>
+    <div class="panel">
+      <div class="field">
+        <label for="fRace">レース日</label>
+        <input type="date" id="fRace">
+      </div>
+      <div class="field">
+        <label for="fGoal">目標タイム（h:mm:ss）</label>
+        <input type="text" id="fGoal" placeholder="5:00:00" class="mono">
+      </div>
+      <div class="row c2">
+        <div class="field">
+          <label for="fAge">年齢</label>
+          <input type="number" id="fAge" min="10" max="99" step="1" placeholder="38">
+        </div>
+        <div class="field">
+          <label for="fMax">最大心拍（実測があれば）</label>
+          <input type="number" id="fMax" min="120" max="230" step="1" placeholder="推定値を使う">
+        </div>
+      </div>
+      <p class="hint">プラン強度とロング走の曜日は、上の「今週のメニュー」で切り替えます。<br>
+        現在地の測り方は docs/02-goal.md、プランの中身は docs/05-plan.md。</p>
+    </div>
+
+    <h2>練習ペース</h2>
+    <div class="panel">
+      <table id="paceTbl"></table>
+      <p class="hint" id="gatePace" style="border-top:1px solid var(--line);padding-top:8px;margin-top:10px"></p>
+      <p class="hint">E＝ジョグ・ロング走（全体の8割）／M＝レースペース／T＝閾値／I＝インターバル。
+        中身は docs/04-paces.md、メニューは docs/06-workouts.md。</p>
+    </div>
+
+    <h2>心拍ゾーン</h2>
+    <div class="panel">
+      <table id="hrTbl"></table>
+      <p class="hint" id="hrNote"></p>
+    </div>
+
+    <h2>本番のペース配分</h2>
+    <div class="panel">
+      <div class="tbl-wrap"><table id="splitTbl"></table></div>
+      <p class="hint">前半16 kmの上り基調と38 km手前の上りを織り込んだ配分です（docs/11-raceday.md）。</p>
+    </div>
+
+    <h2>シューズ</h2>
+    <div class="panel" id="shoePanel"></div>
+  </div>
+
+  <!-- ============ 右カラム ============ -->
+  <div>
+    <h2>スマートウォッチから取り込む</h2>
+    <div class="panel">
+      <div class="drop" id="drop">
+        <p><b>.fit ファイルをここにドロップ</b>（まとめて複数可）</p>
+        <p class="hint">または
+          <label class="btn btn-sm" for="fitFile">ファイルを選ぶ</label>
+          <input type="file" id="fitFile" accept=".fit,application/octet-stream" multiple hidden>
+        </p>
+      </div>
+      <p class="hint">ファイルはこの端末のブラウザ内だけで解析され、どこにも送信されません。
+        Googleドライブに置いている場合は、ドライブのフォルダからそのままドロップできます。</p>
+      <div id="fitPreview"></div>
+    </div>
+
+    <h2>練習を記録する</h2>
+    <div class="panel">
+      <div class="row c2">
+        <div class="field">
+          <label for="iDate">日付</label>
+          <input type="date" id="iDate">
+        </div>
+        <div class="field">
+          <label for="iType">種別</label>
+          <select id="iType"></select>
+        </div>
+      </div>
+      <div class="row c3">
+        <div class="field">
+          <label for="iDist">距離（km）</label>
+          <input type="number" id="iDist" step="0.01" min="0" placeholder="8.0">
+        </div>
+        <div class="field">
+          <label for="iTime">時間（h:mm:ss）</label>
+          <input type="text" id="iTime" placeholder="1:05:00" class="mono">
+        </div>
+        <div class="field">
+          <label for="iRpe">RPE 1〜10</label>
+          <input type="number" id="iRpe" min="1" max="10" step="1" placeholder="4">
+        </div>
+      </div>
+      <div class="row c3">
+        <div class="field">
+          <label for="iHr">平均心拍</label>
+          <input type="number" id="iHr" min="60" max="220" step="1" placeholder="—">
+        </div>
+        <div class="field">
+          <label for="iWt">体重（kg）</label>
+          <input type="number" id="iWt" step="0.1" min="0" placeholder="—">
+        </div>
+        <div class="field">
+          <label for="iPain">痛み</label>
+          <select id="iPain">
+            <option value="0">なし</option>
+            <option value="1">違和感</option>
+            <option value="2">痛みあり</option>
+          </select>
+        </div>
+      </div>
+      <div class="row c2">
+        <div class="field">
+          <label for="iShoe">シューズ</label>
+          <input type="text" id="iShoe" list="shoeList" placeholder="（任意）">
+          <datalist id="shoeList"></datalist>
+        </div>
+        <div class="field">
+          <label for="iMemo">メモ</label>
+          <input type="text" id="iMemo" placeholder="コース・体調・気づいたこと">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="addBtn" type="button" style="width:100%">記録する</button>
+      <p class="hint" id="addMsg"></p>
+    </div>
+
+    <h2>週間距離（計画と実績）</h2>
+    <div class="panel">
+      <div class="chartwrap" id="chart"></div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>実績</span>
+        <span><i style="background:var(--line)"></i>計画</span>
+        <span><i style="background:var(--water)"></i>今週</span>
+      </div>
+    </div>
+
+    <h2>週別のまとめ</h2>
+    <div class="panel">
+      <div class="tbl-wrap"><table id="weekTbl"></table></div>
+    </div>
+
+    <h2>記録</h2>
+    <div class="panel">
+      <ul class="loglist" id="logs"></ul>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p id="syncNote" style="margin:0 0 6px"></p>
+  記録はこの端末の <code>localStorage</code> にのみ保存され、外部へ送信されません。<br>
+  ブラウザのデータを消すと記録も消えます。定期的に「バックアップ」か「CSV」で控えを取ってください。
+</footer>
+
+</div>
+
+<script>
+"use strict";
+const KEY="kyoto.marathon.v1", THEME="kyoto.marathon.theme";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* 端末の地方時での「今日」。toISOString() は UTC を返すので、
+   そのまま使うと日本時間の 0〜9時に前日扱いになってしまう */
+const today=()=>{
+  const d=new Date();
+  return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+};
+const dnum=d=>Math.round((new Date(d+"T00:00:00Z")-new Date(today()+"T00:00:00Z"))/864e5);
+
+/* ---------- 時間の入出力 ---------- */
+/* "1:05:30" / "45:30" / "45" のいずれも受け付けて秒に直す */
+function parseTime(s){
+  s=String(s||"").trim();
+  if(!s)return null;
+  const p=s.split(":").map(x=>x.trim());
+  if(p.some(x=>x===""||!/^\d+(\.\d+)?$/.test(x)))return null;
+  const n=p.map(Number);
+  let sec;
+  if(n.length===1)sec=n[0]*60;          /* 分だけの入力 */
+  else if(n.length===2)sec=n[0]*60+n[1];
+  else if(n.length===3)sec=n[0]*3600+n[1]*60+n[2];
+  else return null;
+  return sec>0?Math.round(sec):null;
+}
+function fmtSec(sec){
+  if(sec==null||!isFinite(sec))return "—";
+  sec=Math.round(sec);
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  const pad=v=>String(v).padStart(2,"0");
+  return h>0?h+":"+pad(m)+":"+pad(s):m+":"+pad(s);
+}
+function fmtPace(sec){
+  if(sec==null||!isFinite(sec)||sec<=0)return "—";
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+"'"+String(sec%60).padStart(2,"0")+'"';
+}
+const r1=v=>Math.round(v*10)/10;
+
+/* ---------- 週（月曜はじまり） ---------- */
+function weekStart(iso){
+  const d=new Date(iso+"T00:00:00Z");
+  const w=(d.getUTCDay()+6)%7;         /* 月=0 */
+  d.setUTCDate(d.getUTCDate()-w);
+  return d.toISOString().slice(0,10);
+}
+function addDays(iso,n){
+  const d=new Date(iso+"T00:00:00Z");
+  d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+const md=iso=>iso?iso.slice(5).replace("-","/"):"—";
+
+/* ---------- 練習の種別 ---------- */
+const TYPES=[
+  {k:"E",nm:"ジョグ（E）",  c:"var(--leaf)",  run:true},
+  {k:"L",nm:"ロング走",     c:"var(--accent)",run:true},
+  {k:"M",nm:"ペース走（M）",c:"var(--water)", run:true},
+  {k:"T",nm:"閾値走（T）",  c:"var(--warn)",  run:true},
+  {k:"I",nm:"インターバル", c:"var(--warn)",  run:true},
+  {k:"R",nm:"レース・TT",   c:"var(--alert)", run:true},
+  {k:"X",nm:"クロス",       c:"var(--ink-3)", run:false},
+  {k:"S",nm:"補強",         c:"var(--ink-3)", run:false}
+];
+const TYPE=k=>TYPES.find(t=>t.k===k)||TYPES[0];
+
+/* ---------- 23週の計画 ---------- */
+/* km/long は [A,B,C]。long は週でいちばん長い1本 */
+const PLAN=[
+ {w:"P1", s:"2026-09-14", km:[10,18,25], lg:[5,8,10],   ph:"prep", nt:"30分テスト。走れなければラン2分＋歩き1分×10"},
+ {w:"P2", s:"2026-09-21", km:[12,20,28], lg:[6,10,12],  ph:"prep", nt:"補強を週2回はじめる"},
+ {w:"P3", s:"2026-09-28", km:[14,22,30], lg:[8,12,14],  ph:"prep", pt:"5 kmタイムトライアル", ptk:"R",
+   nt:"5 kmタイムトライアル → プラン確定"},
+ {w:"P4", s:"2026-10-05", km:[10,16,22], lg:[6,10,12],  ph:"prep", nt:"回復週。10/5 抽選結果発表"},
+ {w:"P5", s:"2026-10-12", km:[16,26,34], lg:[10,14,16], ph:"prep", nt:"シューズを確定させる"},
+ {w:"W1", s:"2026-10-19", km:[18,28,36], lg:[8,12,16],  ph:"base", nt:"土台期。全部E＋流し4本"},
+ {w:"W2", s:"2026-10-26", km:[20,31,40], lg:[10,14,18], ph:"base", nt:"全部E＋流し4本"},
+ {w:"W3", s:"2026-11-02", km:[22,34,44], lg:[12,16,20], ph:"base", nt:"11/3（文化の日）をロング走に使える"},
+ {w:"W4", s:"2026-11-09", km:[16,24,31], lg:[10,12,14], ph:"base", nt:"回復週"},
+ {w:"W5", s:"2026-11-16", km:[24,36,46], lg:[13,18,22], ph:"power",
+   pt:"T 8分 × 2（間に3分ジョグ）", ptk:"T", nt:"走力期。閾値走を導入"},
+ {w:"W6", s:"2026-11-23", km:[26,39,50], lg:[15,20,24], ph:"power",
+   pt:"T 10分 × 2（間に3分ジョグ）", ptk:"T", nt:"11/23（勤労感謝の日）活用"},
+ {w:"W7", s:"2026-11-30", km:[28,42,54], lg:[17,22,26], ph:"power",
+   pt:"T 20分 × 1", ptk:"T", nt:"閾値走が20分続けられるように"},
+ {w:"W8", s:"2026-12-07", km:[20,29,38], lg:[12,15,18], ph:"power",
+   pt:"5 kmタイムトライアル", ptk:"R", nt:"回復週＋5 kmTT（2回目）"},
+ {w:"W9", s:"2026-12-14", km:[30,44,57], lg:[18,24,28], ph:"spec",
+   pt:"T 20分 × 1", ptk:"T", lgn:"後半3 kmをMペース", nt:"特異期。ロング走にMペースを入れる"},
+ {w:"W10",s:"2026-12-21", km:[32,47,60], lg:[20,26,30], ph:"spec",
+   pt:"M 5 km", ptk:"M", lgn:"後半5 kmをMペース", nt:"Mペースの感覚を体に入れる"},
+ {w:"W11",s:"2026-12-28", km:[24,34,44], lg:[15,18,20], ph:"spec",
+   nt:"回復週（年末年始）。元日にジョグ"},
+ {w:"W12",s:"2027-01-04", km:[34,48,62], lg:[22,28,32], ph:"spec",
+   pt:"M 8 km", ptk:"M", lgn:"後半8 kmをMペース", nt:"ここから2週が最大の山"},
+ {w:"W13",s:"2027-01-11", km:[36,50,65], lg:[24,30,32], ph:"spec",
+   pt:"M 8 km", ptk:"M", lgn:"後半8 kmをMペース。終盤に坂を含むコースで",
+   nt:"最大量週。1/11（成人の日）をロング走に"},
+ {w:"W14",s:"2027-01-18", km:[26,36,46], lg:[16,18,20], ph:"peak",
+   pt:"5 kmタイムトライアル", ptk:"R", nt:"回復週＋5 kmTT（3回目）。目標タイムの最終決定"},
+ {w:"W15",s:"2027-01-25", km:[34,46,58], lg:[26,30,32], ph:"peak",
+   lgn:"本番予行。時刻・ウェア・シューズ・補給を本番と同じに。前半E、後半10 kmをM",
+   nt:"本番予行のロング走。ここで装備の問題を全部洗い出す"},
+ {w:"W16",s:"2027-02-01", km:[26,36,46], lg:[18,22,24], ph:"taper",
+   pt:"M 8 km", ptk:"M", nt:"調整期。量は減らす、強度は残す"},
+ {w:"W17",s:"2027-02-08", km:[18,26,33], lg:[12,14,16], ph:"taper",
+   pt:"M 5 km", ptk:"M", nt:"ピークの約5割。2/11（建国記念の日）"},
+ {w:"W18",s:"2027-02-15", km:[10,13,16], lg:[42.195,42.195,42.195], ph:"race",
+   nt:"レース週。2/21 京都マラソン2027"}
+];
+const TIERS=["A","B","C"];
+const planOf=iso=>PLAN.find(p=>p.s===weekStart(iso))||null;
+
+/* ---------- 保存 ---------- */
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r);}catch(e){}
+  return null;
+}
+/* 保存できない環境（プライベートウィンドウ、隔離フレーム等）で
+   「保存できたように見えて消える」ことがないよう、起動時に必ず確かめる */
+let canStore=null;
+function probeStore(){
+  try{
+    const k=KEY+".probe";
+    localStorage.setItem(k,"1");
+    const ok=localStorage.getItem(k)==="1";
+    localStorage.removeItem(k);
+    canStore=ok;
+  }catch(e){canStore=false;}
+  return canStore;
+}
+function save(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(state));
+    if(canStore===false){canStore=true;showStoreWarn();}
+    return true;
+  }catch(e){
+    if(canStore!==false){canStore=false;showStoreWarn();}
+    return false;
+  }
+}
+function showStoreWarn(){
+  const el=$("#storeWarn");
+  if(canStore!==false){el.hidden=true;return;}
+  el.hidden=false;
+  el.innerHTML='<b>この画面では記録を保存できません。</b>'+
+    'ブラウザの保存領域が使えない環境で開いています（入力しても再読み込みで消えます）。'+
+    'いま入力した内容は右上の「バックアップ」からコピーして取り出せます。'+
+    '保存して使うには、この台帳を自分の端末にファイルとして置いて開いてください。';
+}
+
+/* ---------- 端末間の同期 ----------
+   この台帳をアーティファクトとして公開した場合だけ、共有データベースが使える。
+   ローカルのファイルとして開いたときは何も起きず、これまでどおり
+   localStorage だけで動く（外部通信ゼロのまま）。 */
+let DB=null, dbOn=false, dbSubs=[];
+const dbQueue=new Map();            /* 同じ文書への書き込みが重ならないようにする */
+function syncNote(t){ const el=document.getElementById("syncNote"); if(el)el.innerHTML=t; }
+
+async function dbWrite(path, body){
+  if(!DB)return;
+  const prev=dbQueue.get(path)||Promise.resolve();
+  const next=prev.then(()=>DB.doc(path).set(body)).catch(e=>{
+    if(e&&e.code==="invalid_argument")syncNote(
+      '<b style="color:var(--warn)">この画面からは同期できません（閲覧のみの権限）。</b>'+
+      '記録はこの端末に保存されます。');
+    else if(e&&e.code==="quota_exceeded")syncNote(
+      '<b style="color:var(--alert)">同期先の容量がいっぱいです。</b>古い記録を減らしてください。');
+  });
+  dbQueue.set(path,next);
+  return next;
+}
+async function dbDelete(path){
+  if(!DB)return;
+  const prev=dbQueue.get(path)||Promise.resolve();
+  const next=prev.then(()=>DB.doc(path).delete()).catch(()=>{});
+  dbQueue.set(path,next);
+  return next;
+}
+const pushCfg =()=>dbWrite("settings/main",{...state.cfg});
+const pushLog =l=>dbWrite("logs/"+l.lid,{...l});
+const pushAll =()=>{ pushCfg(); state.logs.forEach(pushLog); };
+
+/* window.claude は、このスクリプトが走った時点ではまだ入っていないことがある。
+   最大10秒待ってから判断する（待たずに諦めると、同期が永久に始まらない）。 */
+function waitClaude(ms){
+  return new Promise(res=>{
+    const t0=Date.now();
+    (function tick(){
+      const c=(typeof window!=="undefined")?window.claude:null;
+      if(c&&typeof c.use==="function")return res(c);
+      if(Date.now()-t0>=ms)return res(null);
+      setTimeout(tick,200);
+    })();
+  });
+}
+const LOCAL_ONLY='この端末のブラウザ内にだけ保存しています（同期なし）。'+
+  '別の端末へ移すには「バックアップ」のJSONを使ってください。';
+
+async function initSync(){
+  const c=await waitClaude(10000);
+  if(!c){ syncNote(LOCAL_ONLY); return; }            /* ファイルとして開いている */
+  try{ DB=await c.use("db"); }catch(e){ DB=null; }
+  if(!DB){ syncNote(LOCAL_ONLY); return; }
+  dbOn=true;
+  try{
+    const [sn,ls]=await Promise.all([
+      DB.doc("settings/main").get(),
+      DB.collection("logs").get()
+    ]);
+    /* remote を正にしつつ、この端末にしか無い記録は吸い上げる */
+    const remote=new Map(ls.docs.filter(d=>d.exists).map(d=>[d.id,d.data()]));
+    const localOnly=state.logs.filter(l=>!remote.has(l.lid));
+    if(sn.exists)state.cfg=Object.assign({},DEF.cfg,sn.data());
+    state.logs=[...remote.values(), ...localOnly];
+    migrate(); save(); render();
+    if(!sn.exists)pushCfg();
+    localOnly.forEach(pushLog);
+    syncNote('<b style="color:var(--leaf)">同期中。</b>'+
+      'この台帳を開いた端末すべてで、同じ記録が見えます。');
+  }catch(e){
+    syncNote('同期の読み込みに失敗しました。この端末の記録で表示しています。');
+    return;
+  }
+  /* 他の端末での変更を受け取る */
+  dbSubs.push(DB.doc("settings/main").onSnapshot(sn=>{
+    if(!sn.exists)return;
+    const next=Object.assign({},DEF.cfg,sn.data());
+    if(JSON.stringify(next)===JSON.stringify(state.cfg))return;
+    state.cfg=next; migrate(); save(); render();
+  },()=>{}));
+  dbSubs.push(DB.collection("logs").onSnapshot(qs=>{
+    const next=qs.docs.filter(d=>d.exists).map(d=>d.data());
+    const a=JSON.stringify(next.map(l=>l.lid).sort());
+    const b=JSON.stringify(state.logs.map(l=>l.lid).sort());
+    if(a===b&&JSON.stringify(next.length)===JSON.stringify(state.logs.length))return;
+    state.logs=next; migrate(); save(); render();
+  },()=>{}));
+}
+
+const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,longDay:6},logs:[]};
+let state=load()||JSON.parse(JSON.stringify(DEF));
+function migrate(){
+  state.cfg=Object.assign({},DEF.cfg,state.cfg||{});
+  if(!TIERS.includes(state.cfg.tier))state.cfg.tier="B";
+  if(!(state.cfg.goal>0))state.cfg.goal=18000;
+  state.cfg.age=Number(state.cfg.age)||null;
+  state.cfg.maxhr=Number(state.cfg.maxhr)||null;
+  if(state.cfg.longDay!==5&&state.cfg.longDay!==6)state.cfg.longDay=6;
+  state.logs=Array.isArray(state.logs)?state.logs:[];
+  let n=0;
+  state.logs.forEach(l=>{
+    if(!l.lid)l.lid="l"+Date.now().toString(36)+(n++).toString(36);
+    if(!TYPES.some(t=>t.k===l.type))l.type="E";
+    l.dist=Number(l.dist)||0;
+    l.sec=Number(l.sec)||0;
+    l.pain=Number(l.pain)||0;
+    l.cad=Number(l.cad)||null;
+    l.asc=Number(l.asc)||null;
+    l.kcal=Number(l.kcal)||null;
+    if(typeof l.shoe!=="string")l.shoe="";
+    if(typeof l.memo!=="string")l.memo="";
+    if(l.an&&typeof l.an!=="object")l.an=null;
+    if(typeof l.src!=="string")l.src="";
+    if(typeof l.file!=="string")l.file="";
+  });
+  state.logs.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+}
+migrate();
+probeStore();
+
+/* ---------- ペース計算 ---------- */
+const MARA=42.195;
+function paces(){
+  const m=state.cfg.goal/MARA;         /* 目標マラソンペース（秒/km） */
+  return {m:m, eLo:m*1.15, eHi:m*1.24, t:m*0.90, i:m*0.82, gate:21600/MARA};
+}
+/* 最大心拍。実測があればそれを使い、なければ 208 − 0.7 × 年齢 で推定する */
+function hrMax(){
+  if(state.cfg.maxhr>0)return {v:state.cfg.maxhr,src:"実測"};
+  if(state.cfg.age>0)return {v:Math.round(208-0.7*state.cfg.age),src:"推定"};
+  return null;
+}
+/* ゾーンは最大心拍に対する割合。E の上限（79%）を超えて走るジョグは、ジョグではない */
+const HRZ=[
+  {k:"E",nm:"ジョグ・ロング",lo:0.65,hi:0.79},
+  {k:"M",nm:"レースペース",  lo:0.79,hi:0.87},
+  {k:"T",nm:"閾値走",        lo:0.87,hi:0.92},
+  {k:"I",nm:"インターバル",  lo:0.92,hi:1.00}
+];
+/* 1.00 は「それ以上」の意味。表示のときは上限なしとして扱う */
+const eCeil=()=>{const m=hrMax();return m?Math.round(m.v*0.79):null;};
+
+/* 5 kmごとの配分。京都の起伏（前半上り／18 km以降下り／38 km手前の上り）を反映した重み */
+const SEGW=[0.12,0.116667,0.116667,0.118333,0.115,0.116667,0.12,0.123333,0.053333];
+const SEGKM=[5,10,15,20,25,30,35,40,MARA];
+function splits(goal){
+  const out=[];let acc=0;
+  for(let i=0;i<SEGW.length;i++){
+    acc+=goal*SEGW[i];
+    out.push({km:SEGKM[i],cum:acc});
+  }
+  return out;
+}
+
+/* ---------- 集計 ---------- */
+function weekAgg(){
+  const map=new Map();
+  state.logs.forEach(l=>{
+    const ws=weekStart(l.date);
+    if(!map.has(ws))map.set(ws,{ws:ws,dist:0,sec:0,n:0,days:new Set(),long:0,pain:0});
+    const a=map.get(ws);
+    a.n++;a.days.add(l.date);
+    if(l.pain>=2)a.pain++;
+    if(TYPE(l.type).run){
+      a.dist+=l.dist;a.sec+=l.sec;
+      if(l.dist>a.long)a.long=l.dist;
+    }
+  });
+  return map;
+}
+function distSince(fromIso){
+  return state.logs.reduce((s,l)=>
+    (TYPE(l.type).run&&l.date>=fromIso)?s+l.dist:s,0);
+}
+
+/* ---------- 今週のメニューを組み立てる ---------- */
+const WD=["月","火","水","木","金","土","日"];
+
+/* その週の合計距離とロング走から、走る日と距離を割り振る。
+   ロング走の曜日を基準に、なるべく間隔が空くように並べる。 */
+/* 走る曜日の並び。ロング走の曜日（5=土／6=日）ごとに、
+   練習日が続かないように、またポイント練習とロング走が中2日あくように置く。
+   pt＝ポイント練習の位置、rc＝回復ジョグの位置（配列の添字） */
+const SLOTS={
+  A:{5:{d:[1,3],      pt:1, rc:-1},   6:{d:[1,3],      pt:1, rc:-1}},
+  B:{5:{d:[0,2,3],    pt:1, rc:2},    6:{d:[1,3,5],    pt:1, rc:2}},
+  C:{5:{d:[0,1,2,3],  pt:2, rc:3},    6:{d:[1,2,3,5],  pt:1, rc:3}}
+};
+
+function weekMenu(pl){
+  const ti=TIERS.indexOf(state.cfg.tier);
+  const total=pl.km[ti], long=pl.lg[ti];
+  const ld=state.cfg.longDay;                 /* 5=土 6=日 */
+  const days=Array.from({length:7},()=>null);
+
+  if(pl.ph==="race"){
+    days[1]={k:"E",nm:"ジョグ＋流し4本",dist:4,pace:"E"};
+    days[3]={k:"M",nm:"ジョグ＋Mペース 1 km × 2",dist:5,pace:"M"};
+    days[5]={k:"E",nm:"軽いジョグ（脚を起こすだけ）",dist:3,pace:"E"};
+    days[6]={k:"R",nm:"京都マラソン2027",dist:MARA,pace:"M",
+      note:"docs/11-raceday.md のペース配分で",race:true};
+    return days;
+  }
+
+  days[ld]={k:"L",nm:"ロング走",dist:long,pace:"E",note:pl.lgn||""};
+  const rest=Math.max(0,total-long);
+  const sl=SLOTS[state.cfg.tier][ld], hasPt=!!pl.pt;
+
+  /* 役割ごとの重みで、ロング走以外の距離を配分する */
+  const rw=sl.d.map((_,i)=> i===sl.pt ? (hasPt?1.4:1.0) : (i===sl.rc?0.7:1.0));
+  const sum=rw.reduce((a,b)=>a+b,0);
+
+  sl.d.forEach((d,i)=>{
+    const km=Math.round(rest*rw[i]/sum*2)/2;
+    if(km<=0)return;
+    if(i===sl.pt&&hasPt){
+      const k=pl.ptk||"T";
+      days[d]={k:k,nm:pl.pt,dist:km,pace:(k==="M")?"M":(k==="R")?"R":"T",
+        note:"前後にジョグ10〜15分（ウォームアップとクールダウン）"};
+    }else{
+      const recov=(i===sl.rc);
+      days[d]={k:"E",nm:recov?"回復ジョグ":"ジョグ",dist:km,pace:"E",
+        note:recov?"Eよりさらに遅く":((pl.ph==="prep"||pl.ph==="base")?"最後に流し100 m×4本":"")};
+    }
+  });
+
+  /* 補強を週2回。ロング走の翌日は完全休養にしたいので、そこには置かない */
+  const after=(ld+1)%7;
+  let put=0;
+  for(let i=0;i<7&&put<2;i++){
+    if(days[i]||i===after)continue;
+    days[i]={rest:true,nm:"補強10分"};
+    put++;
+  }
+  return days;
+}
+
+function paceText(kind){
+  const p=paces();
+  if(kind==="E")return fmtPace(p.eLo)+"〜"+fmtPace(p.eHi);
+  if(kind==="M")return fmtPace(p.m);
+  if(kind==="T")return fmtPace(p.t);
+  if(kind==="R")return "全力";
+  return "—";
+}
+function paceMid(kind){
+  const p=paces();
+  if(kind==="E")return (p.eLo+p.eHi)/2;
+  if(kind==="M")return p.m;
+  if(kind==="T")return p.t*1.15;   /* 前後のジョグを含めた平均 */
+  if(kind==="R")return p.t;
+  return p.m;
+}
+
+function renderMenu(){
+  const tbl=$("#menuTbl"), note=$("#menuNote");
+  const pl=planOf(today());
+  if(!pl){
+    tbl.innerHTML="";
+    note.textContent="計画の期間外です。2026/9/14〜2027/2/21 のあいだは、その週のメニューがここに出ます。";
+    return;
+  }
+  const days=weekMenu(pl);
+  const done=new Set(state.logs.filter(l=>TYPE(l.type).run).map(l=>l.date));
+  let h='<thead><tr><th>曜日</th><th>内容</th><th class="num">距離</th>'+
+    '<th class="num">ペース</th><th class="num">目安</th></tr></thead><tbody>';
+  for(let i=0;i<7;i++){
+    const d=addDays(pl.s,i), v=days[i], isToday=(d===today());
+    const cls=[v?"":"rest",isToday?"today":""].filter(Boolean).join(" ");
+    if(!v||v.rest){
+      h+='<tr class="rest'+(isToday?" today":"")+'"><td class="wd">'+WD[i]+
+        ' <span class="sub">'+md(d)+'</span></td>'+
+        '<td colspan="4">休養'+(v&&v.nm?'（<b>'+esc(v.nm)+'</b>）':'')+'</td></tr>';
+      continue;
+    }
+    const mins=Math.round(v.dist*paceMid(v.pace)/60);
+    h+='<tr class="'+cls+'"><td class="wd">'+WD[i]+' <span class="sub">'+md(d)+'</span></td>'+
+      '<td>'+esc(v.nm)+(done.has(d)?' <span class="ok">✓</span>':'')+
+      (v.note?'<br><span class="sub">'+esc(v.note)+'</span>':'')+'</td>'+
+      '<td class="num">'+r1(v.dist)+'</td>'+
+      '<td class="num">'+paceText(v.pace)+'</td>'+
+      '<td class="num sub">'+mins+'分</td></tr>';
+  }
+  tbl.innerHTML=h+'</tbody>';
+  const sum=days.reduce((a,v)=>a+((v&&!v.rest&&!v.race)?v.dist:0),0);
+  note.innerHTML='<b>'+pl.w+'週：'+esc(pl.nt)+'</b><br>'+
+    (pl.ph==="race"
+      ? '本番を除いた合計 <span class="mono">'+r1(sum)+' km</span>。'+
+        '<b>ここで走り込んでも本番には間に合いません。脚を休ませることが仕事です。</b>'
+      : '合計 <span class="mono">'+r1(sum)+' km</span>（プラン'+state.cfg.tier+'の目標 '+
+        pl.km[TIERS.indexOf(state.cfg.tier)]+' km）。距離はその日の体調で±2割ずらして構いません。'+
+        '<b>削るときは、つなぎのジョグから。ロング走は最後まで残します。</b>');
+}
+
+/* ---------- 描画 ---------- */
+function render(){
+  renderSummary();
+  renderWeekBanner();
+  renderAlerts();
+  renderMenu();
+  renderPaces();
+  renderHr();
+  renderSplits();
+  renderChart();
+  renderWeekTable();
+  renderLogs();
+  renderShoes();
+  renderCfg();
+}
+
+let cfgTimer=null;
+function cfgChanged(){ clearTimeout(cfgTimer); cfgTimer=setTimeout(pushCfg,400); }
+
+function renderCfg(){
+  $("#fRace").value=state.cfg.raceDate;
+  $("#fGoal").value=fmtSec(state.cfg.goal);
+  $("#fAge").value=state.cfg.age||"";
+  $("#fMax").value=state.cfg.maxhr||"";
+  document.querySelectorAll(".tierBtn").forEach(b=>{
+    b.classList.toggle("btn-primary",b.dataset.tier===state.cfg.tier);
+  });
+  document.querySelectorAll(".dayBtn").forEach(b=>{
+    b.classList.toggle("btn-primary",Number(b.dataset.day)===state.cfg.longDay);
+  });
+}
+
+function renderSummary(){
+  const wk=weekAgg();
+  const tw=wk.get(weekStart(today()));
+  const lw=wk.get(weekStart(addDays(today(),-7)));
+  const four=distSince(addDays(weekStart(today()),-21));
+  const total=state.logs.reduce((s,l)=>TYPE(l.type).run?s+l.dist:s,0);
+  const longest=state.logs.reduce((m,l)=>TYPE(l.type).run&&l.dist>m?l.dist:m,0);
+  const d=dnum(state.cfg.raceDate);
+  const p=planOf(today());
+  const tgt=p?p.km[TIERS.indexOf(state.cfg.tier)]:null;
+  const cell=(t,v,u)=>'<div class="stat"><dt>'+t+'</dt><dd>'+v+
+    (u?'<small>'+u+'</small>':'')+'</dd></div>';
+  $("#summary").innerHTML=
+    cell("レースまで", d>0?("D-"+d):(d===0?"当日":"終了"), d>0?"日":"")+
+    cell("今週", r1(tw?tw.dist:0)+(tgt?'<small> / '+tgt+'</small>':''), "km")+
+    cell("先週", r1(lw?lw.dist:0), "km")+
+    cell("直近4週", r1(four), "km")+
+    cell("最長走", r1(longest), "km")+
+    cell("累計", Math.round(total), "km");
+}
+
+function renderWeekBanner(){
+  const el=$("#weekBanner"), p=planOf(today());
+  if(!p){
+    const first=PLAN[0];
+    if(today()<first.s){
+      el.hidden=false;
+      el.innerHTML='<b>計画の開始前です。'+md(first.s)+'（月）から準備期がはじまります'+
+        '（あと'+dnum(first.s)+'日）。</b><br>'+
+        'それまでに docs/02-goal.md の「30分テスト」で現在地を測っておくと、'+
+        'プラン強度（A／B／C）を決められます。いま走るなら、全部ゆっくりで構いません。';
+      return;
+    }
+    el.hidden=true;return;
+  }
+  const ti=TIERS.indexOf(state.cfg.tier);
+  const wk=weekAgg().get(p.s);
+  const done=wk?wk.dist:0;
+  const left=Math.max(0,p.km[ti]-done);
+  el.hidden=false;
+  el.innerHTML='<b>'+p.w+'週（'+md(p.s)+'〜'+md(addDays(p.s,6))+'）：'+esc(p.nt)+'</b><br>'+
+    'プラン'+state.cfg.tier+'の目標 <span class="mono">'+p.km[ti]+' km</span>'+
+    '（ロング走 <span class="mono">'+p.lg[ti]+' km</span>）。'+
+    '消化 <span class="mono">'+r1(done)+' km</span>、残り <span class="mono">'+r1(left)+' km</span>。';
+}
+
+function renderAlerts(){
+  const el=$("#alertBanner"), msgs=[];
+  const wk=weekAgg();
+  const tw=wk.get(weekStart(today())), lw=wk.get(weekStart(addDays(today(),-7)));
+  /* 週10%ルール */
+  if(tw&&lw&&lw.dist>0&&tw.dist>lw.dist*1.1){
+    msgs.push('今週はすでに先週比 <b>+'+Math.round((tw.dist/lw.dist-1)*100)+'%</b>。'+
+      '週の増加は10%までに抑えてください（docs/03-principles.md）。');
+  }
+  /* ゆっくり走る日の強度が高すぎる（80/20が崩れている） */
+  const ec=eCeil();
+  if(ec){
+    const hard=state.logs.filter(l=>l.date>=addDays(today(),-14)&&
+      (l.type==="E"||l.type==="L")&&l.hr&&l.hr>ec);
+    if(hard.length>=2){
+      msgs.push('直近2週間で、ジョグ／ロング走の平均心拍が E の上限（<b>'+ec+'拍</b>）を'+
+        '超えたものが <b>'+hard.length+'回</b>。ゆっくり走る日が速すぎます。'+
+        'ペースを落としてください（docs/03-principles.md の80/20）。');
+    }
+  }
+  /* 痛みの連続 */
+  const recent=state.logs.filter(l=>l.date>=addDays(today(),-14));
+  const painN=recent.filter(l=>l.pain>=2).length;
+  if(painN>=2){
+    msgs.push('直近2週間で「痛みあり」が <b>'+painN+'回</b>。'+
+      '走るのを止めて判断してください（docs/08-injury.md）。');
+  }
+  /* 休養日の不足 */
+  const last7=new Set(state.logs.filter(l=>l.date>=addDays(today(),-6)&&TYPE(l.type).run).map(l=>l.date));
+  if(last7.size>=6){
+    msgs.push('直近7日で走った日が <b>'+last7.size+'日</b>。週に最低2日は完全休養を取ってください。');
+  }
+  /* ロング走の不足 */
+  const p=planOf(today());
+  if(p&&dnum(p.s)<=-3){
+    const ti=TIERS.indexOf(state.cfg.tier), a=wk.get(p.s);
+    if((!a||a.long<p.lg[ti]*0.7)&&dnum(addDays(p.s,6))>=0&&p.w!=="W18"){
+      msgs.push('今週のロング走（<b>'+p.lg[ti]+' km</b>）がまだです。'+
+        '削るとしても最後に削る練習です。');
+    }
+  }
+  el.hidden=!msgs.length;
+  el.innerHTML=msgs.length?'<b>確認</b><ul><li>'+msgs.join("</li><li>")+'</li></ul>':"";
+}
+
+function renderPaces(){
+  const p=paces();
+  const row=(k,nm,v,rpe)=>'<tr><td><b>'+k+'</b></td>'+
+    '<td style="white-space:nowrap">'+nm+'</td>'+
+    '<td class="num">'+v+'</td>'+
+    '<td class="num" style="color:var(--ink-3)">'+rpe+'</td></tr>';
+  $("#paceTbl").innerHTML=
+    '<thead><tr><th>—</th><th>用途</th><th class="num">/km</th><th class="num">RPE</th></tr></thead><tbody>'+
+    row("E","ジョグ・ロング",fmtPace(p.eLo)+"〜"+fmtPace(p.eHi),"3〜4")+
+    row("M","レースペース",fmtPace(p.m),"5〜6")+
+    row("T","閾値走",fmtPace(p.t),"7〜8")+
+    row("I","インターバル",fmtPace(p.i),"9〜10")+
+    '</tbody>';
+  $("#gatePace").innerHTML='制限6時間の平均は <b class="mono">'+fmtPace(p.gate)+
+    '</b>/km。給水・トイレ・終盤の失速を考えると、実質の下限は <b class="mono">8\'00"</b>/km です。';
+}
+
+function renderHr(){
+  const m=hrMax(), tbl=$("#hrTbl"), note=$("#hrNote");
+  if(!m){
+    tbl.innerHTML="";
+    note.innerHTML='上の「年齢」を入れるとゾーンが出ます。'+
+      '一度でも本気で追い込んだ日があれば、その最大心拍を入れる方が正確です。';
+    return;
+  }
+  tbl.innerHTML='<thead><tr><th>—</th><th>用途</th><th class="num">心拍</th>'+
+    '<th class="num">%</th></tr></thead><tbody>'+
+    HRZ.map(z=>{
+      const lo=Math.round(m.v*z.lo), hi=Math.round(m.v*z.hi);
+      return '<tr><td><b>'+z.k+'</b></td><td style="white-space:nowrap">'+z.nm+'</td>'+
+        '<td class="num">'+lo+'〜'+hi+'</td>'+
+        '<td class="num" style="color:var(--ink-3)">'+Math.round(z.lo*100)+'〜'+Math.round(z.hi*100)+'</td></tr>';
+    }).join("")+'</tbody>';
+  note.innerHTML='最大心拍 <b class="mono">'+m.v+'</b> 拍（'+m.src+'）を基準にしています。'+
+    '<b>ジョグとロング走は '+eCeil()+' 拍を超えないこと。</b>'+
+    '超えていたら、その日の練習はジョグではなく閾値走です（docs/03-principles.md）。';
+}
+
+function renderSplits(){
+  const sp=splits(state.cfg.goal);
+  let prev=0,rows="";
+  sp.forEach((s,i)=>{
+    const seg=s.cum-prev, segkm=s.km-(i?SEGKM[i-1]:0);
+    rows+='<tr><td class="num">'+(s.km===MARA?"finish":s.km+" km")+'</td>'+
+      '<td class="num">'+fmtSec(s.cum)+'</td>'+
+      '<td class="num" style="color:var(--ink-3)">'+fmtPace(seg/segkm)+'</td></tr>';
+    prev=s.cum;
+  });
+  /* 中間点 */
+  const half=state.cfg.goal*(SEGW[0]+SEGW[1]+SEGW[2]+SEGW[3])+
+    state.cfg.goal*SEGW[4]/5*(21.0975-20);
+  $("#splitTbl").innerHTML='<thead><tr><th class="num">地点</th><th class="num">通過</th>'+
+    '<th class="num">区間ペース</th></tr></thead><tbody>'+rows+
+    '<tr><td class="num" style="color:var(--water)">中間</td>'+
+    '<td class="num" style="color:var(--water)">'+fmtSec(half)+'</td><td></td></tr></tbody>';
+}
+
+function renderChart(){
+  const wk=weekAgg(), ti=TIERS.indexOf(state.cfg.tier);
+  const cur=weekStart(today());
+  /* 現在の週を中心に、計画の範囲で14週ぶんを表示 */
+  let idx=PLAN.findIndex(p=>p.s===cur);
+  if(idx<0)idx=PLAN.findIndex(p=>p.s>cur);
+  if(idx<0)idx=PLAN.length-1;
+  const from=Math.max(0,Math.min(idx-5,PLAN.length-14));
+  const view=PLAN.slice(from,from+14);
+  const max=Math.max(...view.map(p=>p.km[ti]),
+    ...view.map(p=>{const a=wk.get(p.s);return a?a.dist:0}),10);
+  const W=40, H=150, PAD=26;
+  const w=view.length*W+20, h=H+PAD+16;
+  let sv='<svg class="chart" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" aria-label="週間距離の計画と実績">';
+  view.forEach((p,i)=>{
+    const a=wk.get(p.s), act=a?a.dist:0;
+    const x=10+i*W;
+    const ph=Math.round(p.km[ti]/max*H), ah=Math.round(act/max*H);
+    sv+='<rect x="'+(x+4)+'" y="'+(PAD+H-ph)+'" width="'+(W-14)+'" height="'+ph+
+      '" style="fill:var(--line)"/>';
+    if(ah>0)sv+='<rect x="'+(x+9)+'" y="'+(PAD+H-ah)+'" width="'+(W-24)+'" height="'+ah+
+      '" style="fill:'+(p.s===cur?"var(--water)":"var(--accent)")+'"/>';
+    sv+='<text x="'+(x+W/2-3)+'" y="'+(PAD+H+13)+'" text-anchor="middle" font-size="9" '+
+      'style="fill:'+(p.s===cur?"var(--water)":"var(--ink-3)")+'">'+p.w+'</text>';
+    if(act>0)sv+='<text x="'+(x+W/2-3)+'" y="'+(PAD+H-ah-4)+'" text-anchor="middle" font-size="9" '+
+      'style="fill:var(--ink-2)">'+Math.round(act)+'</text>';
+  });
+  sv+='<line x1="0" y1="'+(PAD+H)+'" x2="'+w+'" y2="'+(PAD+H)+'" style="stroke:var(--line)"/>';
+  sv+='<text x="10" y="14" font-size="10" style="fill:var(--ink-3)">上限 '+Math.round(max)+' km</text>';
+  sv+='</svg>';
+  $("#chart").innerHTML=sv;
+}
+
+function renderWeekTable(){
+  const wk=weekAgg(), ti=TIERS.indexOf(state.cfg.tier);
+  const rows=[...wk.values()].sort((a,b)=>a.ws<b.ws?1:-1).slice(0,10);
+  if(!rows.length){$("#weekTbl").innerHTML='<tbody><tr><td class="empty">まだ記録がありません。</td></tr></tbody>';return;}
+  let h='<thead><tr><th>週</th><th class="num">距離</th><th class="num">計画</th>'+
+    '<th class="num">時間</th><th class="num">平均</th><th class="num">最長</th><th class="num">回数</th></tr></thead><tbody>';
+  rows.forEach(a=>{
+    const p=PLAN.find(x=>x.s===a.ws);
+    const tgt=p?p.km[ti]:null;
+    const ratio=tgt?a.dist/tgt:null;
+    const col=ratio==null?"var(--ink-3)":ratio>=0.9?"var(--leaf)":ratio>=0.7?"var(--warn)":"var(--alert)";
+    h+='<tr><td><span class="mono">'+md(a.ws)+'</span>'+
+      (p?' <span class="pill">'+p.w+'</span>':'')+'</td>'+
+      '<td class="num" style="color:'+col+'"><b>'+r1(a.dist)+'</b></td>'+
+      '<td class="num" style="color:var(--ink-3)">'+(tgt!=null?tgt:"—")+'</td>'+
+      '<td class="num">'+fmtSec(a.sec)+'</td>'+
+      '<td class="num">'+(a.dist>0&&a.sec>0?fmtPace(a.sec/a.dist):"—")+'</td>'+
+      '<td class="num">'+r1(a.long)+'</td>'+
+      '<td class="num">'+a.days.size+'</td></tr>';
+  });
+  $("#weekTbl").innerHTML=h+'</tbody>';
+}
+
+let openLog=null, delArm=null, delTimer=null;
+
+/* 取り込み時に計算しておいた解析を、表とバーで見せる */
+function detailHtml(l){
+  const a=l.an, H=[];
+  const m=hrMax(), ec=eCeil();
+
+  if(a.st){
+    const mvPace=(l.dist>0&&a.mv)?a.mv/l.dist:null;
+    H.push('<p class="note">停止 <b>'+fmtSec(a.st)+'</b>'+
+      (mvPace?'　動いている時だけなら 平均 <b>'+fmtPace(mvPace)+'</b>/km':'')+'</p>');
+  }
+
+  H.push('<h4>1 kmごと</h4><div class="tbl-wrap"><table><thead><tr>'+
+    '<th class="num">km</th><th class="num">ラップ</th><th class="num">心拍</th>'+
+    '<th class="num">ピッチ</th><th class="num">停止</th></tr></thead><tbody>'+
+    a.sp.map(x=>{
+      const over=ec&&x[2]&&x[2]>ec;
+      return '<tr><td class="num">'+x[0]+
+        (x[5]?' <small style="color:var(--ink-3);font-weight:400">端数</small>':'')+'</td>'+
+        '<td class="num">'+fmtPace(x[1])+'</td>'+
+        '<td class="num'+(over?' warn':'')+'">'+(x[2]||"—")+'</td>'+
+        '<td class="num">'+(x[3]||"—")+'</td>'+
+        '<td class="num" style="color:var(--ink-3)">'+(x[4]?x[4]+"秒":"")+'</td></tr>';
+    }).join("")+'</tbody></table></div>');
+  const laps=a.sp.filter(x=>!x[5]).map(x=>x[1]);
+  if(laps.length>1){
+    const f=Math.min(...laps), sl=Math.max(...laps);
+    H.push('<p class="note">最速 '+fmtPace(f)+' ／ 最遅 '+fmtPace(sl)+
+      ' ／ 振れ幅 '+Math.round(sl-f)+'秒</p>');
+  }
+
+  /* 心拍ゾーンは、保存してある1拍ごとの滞在秒数から、いまの設定で計算し直す */
+  if(m&&a.hrh){
+    const keys=Object.keys(a.hrh).map(Number);
+    const tot=keys.reduce((x,k)=>x+a.hrh[k],0);
+    if(tot>0){
+      const band=(lo,hi)=>keys.filter(k=>k>=lo&&k<hi).reduce((x,k)=>x+a.hrh[k],0);
+      const rows=HRZ.map(z=>{
+        const lo=Math.round(m.v*z.lo), hi=z.hi<1?Math.round(m.v*z.hi):9999;
+        return {nm:z.k+' '+z.nm, rng:z.hi<1?lo+'–'+hi:lo+'–', n:band(lo,hi),
+                c:z.k==="E"?"var(--leaf)":z.k==="M"?"var(--water)":z.k==="T"?"var(--warn)":"var(--alert)"};
+      });
+      const below=band(0,Math.round(m.v*0.65));
+      if(below)rows.unshift({nm:'（Eより下）',rng:'',n:below,c:'var(--line)'});
+      H.push('<h4>心拍ゾーン（最大 '+m.v+' 拍を基準）</h4><div class="zbar">'+
+        rows.map(r=>'<span>'+esc(r.nm)+'</span>'+
+          '<span class="mono" style="color:var(--ink-3)">'+r.rng+'</span>'+
+          '<span class="mono">'+Math.round(r.n/tot*100)+'% '+'</span>'+
+          '<i style="--z:'+r.c+';width:'+Math.max(2,Math.round(r.n/tot*100))+'%"></i>').join("")+
+        '</div>');
+    }
+  }
+
+  if(a.stops&&a.stops.length){
+    H.push('<h4>停止（信号待ちなど・5秒以上）</h4><div class="tbl-wrap"><table><thead><tr>'+
+      '<th class="num">地点</th><th class="num">停止</th><th class="num">その間の心拍</th>'+
+      '</tr></thead><tbody>'+
+      a.stops.map(x=>'<tr><td class="num">'+r1(x[0]/1000)+' km</td>'+
+        '<td class="num">'+x[1]+'秒</td>'+
+        '<td class="num">'+(x[2]||"—")+'</td></tr>').join("")+
+      '</tbody></table></div>');
+    if(a.ap===0){
+      H.push('<p class="note">オートポーズが働いていないため、平均ペースには停止が含まれています。'+
+        '<b>信号の多いコースでは、ペースではなく心拍で強度を管理する方が確かです。</b></p>');
+    }
+  }
+
+  const fin=[];
+  if(a.dc!=null){
+    fin.push('前半と後半で、同じ速度に対する心拍が <b>'+(a.dc>=0?"+":"")+a.dc+'%</b> 変化。'+
+      (a.dc>8?'有酸素の土台に対してこの強度は高すぎます。'
+       :a.dc>5?'やや高め。同じ距離をもう少し遅く走れると良い。'
+       :'良好。この強度なら持続できています。'));
+  }
+  if(a.lk){
+    fin.push('心拍とピッチの相関 r='+a.lk[0]+'、差が±3拍以内 '+a.lk[1]+'%。'+
+      (a.lk[0]>0.7&&a.lk[1]>60
+        ? '<span class="warn">ケイデンスロック（歩数を心拍として拾う誤動作）の疑いがあります。</span>'
+        : '歩数を拾う誤動作は起きていません。'));
+  }
+  if(m&&l.hr){
+    const pct=Math.round(l.hr/m.v*100);
+    const kind=pct<79?"E（ジョグ）":pct<87?"M（レースペース相当）":pct<92?"T（閾値相当）":"I（インターバル相当）";
+    fin.push('平均心拍は最大の <b>'+pct+'%</b>。この練習の実態は <b>'+kind+'</b> です。'+
+      (pct>=79?'ジョグとして走るなら、平均心拍を '+ec+' 拍以下に収めてください。':''));
+  }
+  if(fin.length)H.push('<h4>判定</h4>'+fin.map(x=>'<p class="note">'+x+'</p>').join(""));
+  return H.join("");
+}
+
+function renderLogs(){
+  const el=$("#logs"), ec2=eCeil();
+  if(!state.logs.length){el.innerHTML='<li class="empty">まだ記録がありません。上のフォームから登録してください。</li>';return;}
+  el.innerHTML=state.logs.slice(0,40).map(l=>{
+    const t=TYPE(l.type);
+    const pace=(l.dist>0&&l.sec>0)?fmtPace(l.sec/l.dist):null;
+    const sub=[];
+    if(l.sec)sub.push(fmtSec(l.sec));
+    if(pace)sub.push(pace+"/km");
+    if(l.rpe)sub.push("RPE "+l.rpe);
+    if(l.hr){
+      const over=ec2&&(l.type==="E"||l.type==="L")&&l.hr>ec2;
+      sub.push(over?'<span style="color:var(--warn)">'+l.hr+' bpm</span>':l.hr+" bpm");
+    }
+    if(l.cad)sub.push(l.cad+" spm");
+    if(l.asc)sub.push("↗"+l.asc+" m");
+    if(l.wt)sub.push(l.wt+" kg");
+    if(l.shoe)sub.push(esc(l.shoe));
+    if(l.pain==1)sub.push("違和感");
+    if(l.pain>=2)sub.push("痛みあり");
+    if(l.memo)sub.push(esc(l.memo));
+    const hasAn=!!(l.an&&l.an.sp&&l.an.sp.length);
+    const open=hasAn&&openLog===l.lid;
+    return '<li class="logitem" style="--tc:'+t.c+'">'+
+      '<span class="stripe"></span>'+
+      '<span class="body"'+(hasAn?' data-exp="'+l.lid+'" role="button" tabindex="0"':'')+
+      '><span class="l1">'+
+        '<span class="d">'+md(l.date)+'</span>'+
+        '<span class="t">'+esc(t.nm)+'</span>'+
+        (l.src==="fit"?'<span class="t" style="--tc:var(--ink-3)" title="'+esc(l.file)+'">時計</span>':'')+
+        (l.pain>=2?'<span class="t" style="--tc:var(--alert)">要注意</span>':'')+
+        (hasAn?'<span class="caret">'+(open?"▲ 閉じる":"▼ 詳しく")+'</span>':'')+
+      '</span><span class="l2">'+sub.join(" ／ ")+'</span></span>'+
+      '<span class="n">'+(t.run?r1(l.dist)+'<small> km</small>':'—')+
+        (delArm===l.lid
+          ? ' <button class="del del-arm" type="button" data-del="'+l.lid+'">本当に削除</button>'
+          : ' <button class="del" type="button" data-del="'+l.lid+'" aria-label="削除">×</button>')+'</span>'+
+      (open?'<div class="detail">'+detailHtml(l)+'</div>':'')+
+      '</li>';
+  }).join("");
+}
+
+function renderShoes(){
+  const m=new Map();
+  state.logs.forEach(l=>{
+    if(!l.shoe||!TYPE(l.type).run)return;
+    m.set(l.shoe,(m.get(l.shoe)||0)+l.dist);
+  });
+  const el=$("#shoePanel");
+  if(!m.size){el.innerHTML='<p class="hint" style="margin:0">記録にシューズ名を入れると、'+
+    '累積距離が出ます。500〜700 kmが交換の目安です。</p>';return;}
+  const rows=[...m.entries()].sort((a,b)=>b[1]-a[1]).map(([nm,d])=>{
+    const col=d>=700?"var(--alert)":d>=500?"var(--warn)":"var(--leaf)";
+    return '<tr><td>'+esc(nm)+'</td><td class="num" style="color:'+col+'"><b>'+Math.round(d)+
+      '</b><small> km</small></td></tr>';
+  }).join("");
+  el.innerHTML='<table><tbody>'+rows+'</tbody></table>'+
+    '<p class="hint">500 kmを超えたら交換を検討、700 kmで交換。</p>';
+  $("#shoeList").innerHTML=[...m.keys()].map(n=>'<option value="'+esc(n)+'">').join("");
+}
+
+/* ---------- .fit ファイルの読み込み ---------- */
+/* FIT の時刻は 1989-12-31 00:00:00 UTC からの秒数 */
+const FIT_EPOCH=631065600;
+const BSZ={0:1,1:1,2:1,3:2,4:2,5:4,6:4,7:1,8:4,9:8,10:1,11:2,12:4,13:1,14:8,15:8,16:8};
+/* 各基本型の「無効値」。この値は未計測を意味するので捨てる */
+const BINV={0:255,1:127,2:255,3:32767,4:65535,5:2147483647,6:4294967295,10:0,11:0,12:0,13:255};
+
+function fitVal(dv,pos,size,bt,le){
+  if(bt===7){                                    /* 文字列 */
+    let t="";
+    for(let i=0;i<size;i++){const c=dv.getUint8(pos+i);if(!c)break;t+=String.fromCharCode(c);}
+    return t||null;
+  }
+  let v;
+  switch(bt){
+    case 0:case 2:case 10:case 13: v=dv.getUint8(pos);break;
+    case 1: v=dv.getInt8(pos);break;
+    case 3: v=dv.getInt16(pos,le);break;
+    case 4:case 11: v=dv.getUint16(pos,le);break;
+    case 5: v=dv.getInt32(pos,le);break;
+    case 6:case 12: v=dv.getUint32(pos,le);break;
+    case 8: v=dv.getFloat32(pos,le);break;
+    case 9: v=dv.getFloat64(pos,le);break;
+    default: return null;
+  }
+  if(BINV[bt]!==undefined&&v===BINV[bt])return null;
+  if((bt===8||bt===9)&&!isFinite(v))return null;
+  return v;
+}
+
+/* 必要なのは session（18）と activity（34）だけ。ほかは読み飛ばす */
+function parseFit(ab){
+  const dv=new DataView(ab);
+  if(ab.byteLength<14)throw new Error("ファイルが小さすぎます");
+  const hsize=dv.getUint8(0);
+  if(hsize<12||hsize>ab.byteLength)throw new Error("FITファイルではないようです");
+  let magic="";
+  for(let i=8;i<12;i++)magic+=String.fromCharCode(dv.getUint8(i));
+  if(magic!==".FIT")throw new Error("FITファイルではないようです");
+  const dsize=dv.getUint32(4,true);
+  let pos=hsize;
+  const end=Math.min(hsize+dsize,ab.byteLength);
+  const defs={}, out={sessions:[],recs:[],act:null};
+  while(pos<end){
+    const h=dv.getUint8(pos++);
+    let local, isDef=false;
+    if(h&0x80){local=(h>>5)&0x3;}              /* 圧縮タイムスタンプヘッダ */
+    else{local=h&0x0F;isDef=!!(h&0x40);}
+    if(isDef){
+      if(pos+5>end)break;
+      const le=dv.getUint8(pos+1)===0;
+      const g=dv.getUint16(pos+2,le);
+      const n=dv.getUint8(pos+4);
+      pos+=5;
+      const fields=[];
+      for(let i=0;i<n;i++){fields.push([dv.getUint8(pos),dv.getUint8(pos+1),dv.getUint8(pos+2)&0x1F]);pos+=3;}
+      let dev=0;
+      if(h&0x20){
+        const nd=dv.getUint8(pos++);
+        for(let i=0;i<nd;i++){dev+=dv.getUint8(pos+1);pos+=3;}
+      }
+      defs[local]={g:g,le:le,fields:fields,dev:dev};
+      continue;
+    }
+    const d=defs[local];
+    if(!d)break;                                /* 定義が来ていない＝読み進められない */
+    const keep=(d.g===18||d.g===34||d.g===20), vals=keep?{}:null;
+    for(let i=0;i<d.fields.length;i++){
+      const f=d.fields[i];
+      if(keep&&pos+f[1]<=ab.byteLength){
+        const v=fitVal(dv,pos,f[1],f[2],d.le);
+        if(v!==null)vals[f[0]]=v;
+      }
+      pos+=f[1];
+    }
+    pos+=d.dev;
+    if(d.g===18)out.sessions.push(vals);
+    else if(d.g===20)out.recs.push(vals);
+    else if(d.g===34&&!out.act)out.act=vals;
+  }
+  return out;
+}
+
+/* 1秒ごとの記録（record）から、練習の中身を解析する。
+   結果は記録に一緒に保存するので、取り込みのときに1度だけ計算する。
+   心拍は「1拍ごとの滞在秒数」の形で持つ。こうしておけば、あとで
+   最大心拍の設定を変えても、ゾーンを計算し直せる。 */
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+function analyzeFit(recs,sn){
+  const pts=recs.filter(r=>r[253]!=null).map(r=>({
+    t:r[253],
+    hr:r[3]!=null?r[3]:null,
+    cad:r[4]!=null?r[4]*2:null,
+    sp:r[6]!=null?r[6]/1000:null,
+    d:r[5]!=null?r[5]/100:null
+  })).sort((a,b)=>a.t-b.t);
+  if(pts.length<30)return null;
+
+  /* 距離。距離の欄を持たない時計のために、速度を積分する経路も持つ */
+  const haveD=pts.some(p=>p.d!=null);
+  let dist=0,last=null;
+  for(const p of pts){
+    const dt=last==null?1:Math.max(0,Math.min(10,p.t-last));
+    last=p.t;
+    if(haveD&&p.d!=null)dist=p.d; else if(p.sp)dist+=p.sp*dt;
+    p.cum=dist; p.dt=dt;
+  }
+
+  /* 止まっている秒。0.5 m/s 未満＝1 kmあたり33分より遅い＝実質停止 */
+  const haveSp=pts.some(p=>p.sp!=null);
+  for(const p of pts)p.stop=haveSp?!(p.sp>0.5):false;
+  const stops=[]; let cur=null;
+  const push=c=>{if(c.sec>=5)stops.push([Math.round(c.at),c.sec,c.hrs.length?Math.round(avg(c.hrs)):null]);};
+  for(const p of pts){
+    if(p.stop){ if(!cur)cur={at:p.cum,sec:0,hrs:[]}; cur.sec+=p.dt; if(p.hr)cur.hrs.push(p.hr); }
+    else if(cur){ push(cur); cur=null; }
+  }
+  if(cur)push(cur);
+  const st=pts.filter(p=>p.stop).reduce((a,p)=>a+p.dt,0);
+  const mv=pts.reduce((a,p)=>a+p.dt,0)-st;
+
+  /* 1 kmごと：[km, ラップ秒, 心拍, ピッチ, 停止秒] */
+  const sp=[]; let markD=0,markT=pts[0].t,seg=[];
+  for(const p of pts){
+    seg.push(p);
+    while(p.cum-markD>=1000){
+      markD+=1000;
+      sp.push([markD/1000,p.t-markT,
+        seg.some(x=>x.hr)?Math.round(avg(seg.filter(x=>x.hr).map(x=>x.hr))):null,
+        seg.some(x=>x.cad)?Math.round(avg(seg.filter(x=>x.cad).map(x=>x.cad))):null,
+        seg.filter(x=>x.stop).reduce((a,x)=>a+x.dt,0)]);
+      markT=p.t; seg=[];
+    }
+  }
+  if(seg.length&&dist-markD>150){
+    sp.push([Math.round(dist/100)/10,seg[seg.length-1].t-markT,
+      seg.some(x=>x.hr)?Math.round(avg(seg.filter(x=>x.hr).map(x=>x.hr))):null,
+      seg.some(x=>x.cad)?Math.round(avg(seg.filter(x=>x.cad).map(x=>x.cad))):null,
+      seg.filter(x=>x.stop).reduce((a,x)=>a+x.dt,0),1]);
+  }
+
+  /* 心拍の滞在秒数（1拍きざみ） */
+  const hrh={};
+  for(const p of pts)if(p.hr)hrh[p.hr]=(hrh[p.hr]||0)+p.dt;
+
+  /* 心拍ドリフト：前半と後半で、同じ速度に対する心拍がどれだけ変わったか */
+  const ok=pts.filter(p=>p.hr&&!p.stop&&p.sp>0);
+  const h=ok.length>>1;
+  const ef=a=>{const v=avg(a.map(x=>x.sp)),b=avg(a.map(x=>x.hr));return(v&&b)?v/b:null;};
+  const e1=ef(ok.slice(0,h)), e2=ef(ok.slice(h));
+  const dc=(e1&&e2)?Math.round((e1-e2)/e1*1000)/10:null;
+
+  /* ケイデンスロック（光学式心拍計が歩数を拾う誤動作）の判定 */
+  let lk=null;
+  const both=pts.filter(p=>p.hr&&p.cad);
+  if(both.length>60){
+    const H=both.map(p=>p.hr), C=both.map(p=>p.cad);
+    const mh=avg(H), mc=avg(C);
+    const sd=a=>{const m=avg(a);return Math.sqrt(avg(a.map(x=>(x-m)**2)));};
+    const cov=avg(both.map((p,i)=>(H[i]-mh)*(C[i]-mc)));
+    const near=both.filter((p,i)=>Math.abs(H[i]-C[i])<=3).length/both.length;
+    lk=[Math.round(cov/((sd(H)*sd(C))||1)*100)/100, Math.round(near*100)];
+  }
+
+  /* 経過時間と計測時間が同じ＝オートポーズが働いていない */
+  const ap=(sn&&sn[7]!=null&&sn[8]!=null)?Math.round((sn[7]-sn[8])/1000):null;
+  return {mv:Math.round(mv),st:Math.round(st),ap,sp,stops,hrh,dc,lk};
+}
+
+/* sport（5）から、この台帳の種別のあたりをつける */
+function guessType(sp,km){
+  if(sp===2||sp===5||sp===11||sp===17)return "X";   /* 自転車・水泳・歩行・ハイキング */
+  return km>=15?"L":"E";
+}
+const SPORT={0:"",1:"ラン",2:"バイク",5:"スイム",11:"ウォーク",17:"ハイク"};
+
+function fitToRecord(s,off,fname,an){
+  const st=s[2], tt=(s[8]!=null?s[8]:s[7]), dm=s[9];
+  if(st==null||tt==null)return null;
+  const ms=(FIT_EPOCH+st+off)*1000;
+  const dt=new Date(ms);
+  if(isNaN(dt))return null;
+  const km=dm!=null?Math.round(dm/100/1000*100)/100:0;
+  const sec=Math.round(tt/1000);
+  return {
+    date:dt.toISOString().slice(0,10),
+    start:dt.toISOString().slice(11,16),
+    type:guessType(s[5],km),
+    sport:SPORT[s[5]]!=null?SPORT[s[5]]:"",
+    dist:km, sec:sec,
+    hr:s[16]!=null?s[16]:null,
+    cad:s[18]!=null?s[18]*2:null,          /* 片脚rpm → spm */
+    asc:s[22]!=null?s[22]:null,
+    kcal:s[11]!=null?s[11]:null,
+    file:fname, an:an||null
+  };
+}
+
+let pending=[];
+function isDup(r){
+  return state.logs.some(l=>
+    (l.file&&l.file===r.file)||
+    (l.date===r.date&&Math.abs((l.dist||0)-r.dist)<0.1&&Math.abs((l.sec||0)-r.sec)<60));
+}
+
+async function readFitFiles(files){
+  const box=$("#fitPreview");
+  pending=[];
+  const errs=[];
+  for(const f of files){
+    try{
+      const ab=await f.arrayBuffer();
+      const {sessions,recs,act}=parseFit(ab);
+      /* activity の local_timestamp との差が、その活動の地方時のずれ */
+      let off=-new Date().getTimezoneOffset()*60;
+      if(act&&act[5]!=null&&act[253]!=null)off=act[5]-act[253];
+      if(!sessions.length)throw new Error("走行のまとめ（session）が入っていません");
+      /* 1本だけの活動なら、1秒ごとの記録から詳しい解析も作る */
+      const an=(sessions.length===1&&recs.length)?analyzeFit(recs,sessions[0]):null;
+      sessions.forEach((sn,i)=>{
+        const r=fitToRecord(sn,off,f.name,i===0?an:null);
+        if(r)pending.push(r);
+      });
+    }catch(e){errs.push(f.name+"："+e.message);}
+  }
+  pending.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(!pending.length){
+    box.innerHTML='<p class="hint" style="color:var(--alert)">'+
+      (errs.length?esc(errs.join(" ／ ")):"読み取れる記録がありませんでした。")+'</p>';
+    return;
+  }
+  let h='<div class="tbl-wrap"><table><thead><tr><th></th><th>日付</th>'+
+    '<th class="num">距離</th><th class="num">時間</th><th class="num">ペース</th>'+
+    '<th class="num">心拍</th><th class="num">ピッチ</th><th>種別</th><th class="num">RPE</th>'+
+    '</tr></thead><tbody>';
+  pending.forEach((r,i)=>{
+    const dup=isDup(r);
+    r.skip=dup;
+    h+='<tr class="fitrow'+(dup?" dup":"")+'">'+
+      '<td><input type="checkbox" data-i="'+i+'" class="fitChk" style="width:auto"'+
+        (dup?"":" checked")+'></td>'+
+      '<td><span class="mono">'+md(r.date)+'</span> <span class="l2" style="color:var(--ink-3)">'+
+        r.start+(r.sport?" "+esc(r.sport):"")+'</span>'+(dup?' <span class="pill">取込済</span>':'')+'</td>'+
+      '<td class="num">'+r1(r.dist)+'</td>'+
+      '<td class="num">'+fmtSec(r.sec)+'</td>'+
+      '<td class="num">'+(r.dist>0?fmtPace(r.sec/r.dist):"—")+'</td>'+
+      '<td class="num">'+(r.hr||"—")+'</td>'+
+      '<td class="num">'+(r.cad||"—")+'</td>'+
+      '<td><select data-i="'+i+'" class="fitType">'+
+        TYPES.map(t=>'<option value="'+t.k+'"'+(t.k===r.type?" selected":"")+'>'+t.nm+'</option>').join("")+
+        '</select></td>'+
+      '<td class="num"><input type="number" min="1" max="10" step="1" data-i="'+i+'" '+
+        'class="fitRpe" style="width:56px" placeholder="—"></td></tr>';
+  });
+  h+='</tbody></table></div>'+
+     '<p class="hint">RPE（主観的強度）だけは時計から取れません。'+
+     '覚えているうちに入れておくと、あとで疲労の溜まり方が見えます。</p>'+
+     '<button class="btn btn-primary" id="fitAdd" type="button" style="width:100%">'+
+     'チェックした記録を取り込む</button>';
+  if(errs.length)h+='<p class="hint" style="color:var(--alert)">'+esc(errs.join(" ／ "))+'</p>';
+  box.innerHTML=h;
+}
+
+$("#fitPreview").addEventListener("change",e=>{
+  const i=e.target.dataset.i;
+  if(i==null||!pending[i])return;
+  if(e.target.classList.contains("fitChk"))pending[i].skip=!e.target.checked;
+  if(e.target.classList.contains("fitType"))pending[i].type=e.target.value;
+  if(e.target.classList.contains("fitRpe"))pending[i].rpe=parseInt(e.target.value,10)||null;
+});
+$("#fitPreview").addEventListener("click",e=>{
+  if(e.target.id!=="fitAdd")return;
+  const take=pending.filter(r=>!r.skip);
+  if(!take.length){$("#fitPreview").innerHTML='<p class="hint">取り込む記録が選ばれていません。</p>';return;}
+  const added=[];
+  take.forEach(r=>{
+    added.push({
+      lid:"l"+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36),
+      date:r.date,type:r.type,dist:r.dist,sec:r.sec,
+      rpe:r.rpe||null,hr:r.hr,wt:null,pain:0,cad:r.cad,asc:r.asc,kcal:r.kcal,
+      shoe:"",memo:"",src:"fit",file:r.file,an:r.an||null
+    });
+  });
+  added.forEach(l=>state.logs.push(l));
+  state.logs.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const ok=save(); added.forEach(pushLog);
+  pending=[];
+  $("#fitPreview").innerHTML='<p class="hint">'+take.length+'件を取り込みました。'+
+    (ok?"":"ただし保存できていません（上の警告を参照）。")+
+    'シューズや体調のメモは、下の記録一覧から追記する代わりに'+
+    '「練習を記録する」で別途つけてください。</p>';
+  $("#fitFile").value="";
+  render();
+});
+
+$("#fitFile").addEventListener("change",e=>{
+  if(e.target.files&&e.target.files.length)readFitFiles([...e.target.files]);
+});
+(function(){
+  const dz=$("#drop");
+  ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{
+    e.preventDefault();dz.classList.add("over");}));
+  ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{
+    e.preventDefault();dz.classList.remove("over");}));
+  dz.addEventListener("drop",e=>{
+    const fs=e.dataTransfer&&e.dataTransfer.files;
+    if(fs&&fs.length)readFitFiles([...fs]);
+  });
+})();
+
+/* ---------- 入力 ---------- */
+$("#iType").innerHTML=TYPES.map(t=>'<option value="'+t.k+'">'+t.nm+'</option>').join("");
+$("#iDate").value=today();
+
+$("#addBtn").addEventListener("click",()=>{
+  const date=$("#iDate").value;
+  if(!date){$("#addMsg").textContent="日付を入れてください。";return;}
+  const type=$("#iType").value;
+  const dist=parseFloat($("#iDist").value)||0;
+  const sec=parseTime($("#iTime").value)||0;
+  if(TYPE(type).run&&dist<=0){$("#addMsg").textContent="距離を入れてください。";return;}
+  const rec={
+    lid:"l"+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36),
+    date:date,type:type,dist:dist,sec:sec,
+    rpe:parseInt($("#iRpe").value,10)||null,
+    hr:parseInt($("#iHr").value,10)||null,
+    wt:parseFloat($("#iWt").value)||null,
+    pain:parseInt($("#iPain").value,10)||0,
+    shoe:$("#iShoe").value.trim(),
+    memo:$("#iMemo").value.trim()
+  };
+  state.logs.push(rec);
+  state.logs.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const ok=save(); pushLog(rec);
+  $("#addMsg").textContent=ok?"記録しました。":"記録しましたが、保存できていません（上の警告を参照）。";
+  ["#iDist","#iTime","#iRpe","#iMemo"].forEach(s=>$(s).value="");
+  render();
+});
+
+$("#logs").addEventListener("click",e=>{
+  const x=e.target.closest("[data-exp]");
+  if(x&&!e.target.closest("[data-del]")){
+    openLog=(openLog===x.dataset.exp)?null:x.dataset.exp;
+    renderLogs();
+    return;
+  }
+  const b=e.target.closest("[data-del]");
+  if(!b)return;
+  const l=state.logs.find(x=>x.lid===b.dataset.del);
+  if(!l)return;
+  if(delArm!==l.lid){            /* 1回目は確認に変える。もう一度押すと削除 */
+    delArm=l.lid; renderLogs();
+    clearTimeout(delTimer);
+    delTimer=setTimeout(()=>{delArm=null;renderLogs();},5000);
+    return;
+  }
+  clearTimeout(delTimer); delArm=null;
+  state.logs=state.logs.filter(x=>x.lid!==l.lid);
+  if(openLog===l.lid)openLog=null;
+  save();dbDelete("logs/"+l.lid);render();
+});
+
+$("#logs").addEventListener("keydown",e=>{
+  if(e.key!=="Enter"&&e.key!==" ")return;
+  const x=e.target.closest("[data-exp]");
+  if(!x)return;
+  e.preventDefault();
+  openLog=(openLog===x.dataset.exp)?null:x.dataset.exp;
+  renderLogs();
+});
+
+$("#fRace").addEventListener("change",e=>{
+  if(e.target.value){state.cfg.raceDate=e.target.value;save();cfgChanged();render();}
+});
+$("#fGoal").addEventListener("change",e=>{
+  const s=parseTime(e.target.value);
+  if(s&&s>=7200&&s<=28800){state.cfg.goal=s;save();cfgChanged();}
+  render();
+});
+$("#fAge").addEventListener("change",e=>{
+  const v=parseInt(e.target.value,10);
+  state.cfg.age=(v>=10&&v<=99)?v:null;save();cfgChanged();render();
+});
+$("#fMax").addEventListener("change",e=>{
+  const v=parseInt(e.target.value,10);
+  state.cfg.maxhr=(v>=120&&v<=230)?v:null;save();cfgChanged();render();
+});
+document.querySelectorAll(".tierBtn").forEach(b=>{
+  b.addEventListener("click",()=>{state.cfg.tier=b.dataset.tier;save();cfgChanged();render();});
+});
+document.querySelectorAll(".dayBtn").forEach(b=>{
+  b.addEventListener("click",()=>{state.cfg.longDay=Number(b.dataset.day);save();cfgChanged();render();});
+});
+
+/* ---------- テーマ ---------- */
+(function(){
+  let t=null;try{t=localStorage.getItem(THEME);}catch(e){}
+  if(t)document.documentElement.setAttribute("data-theme",t);
+  $("#themeBtn").addEventListener("click",()=>{
+    const now=document.documentElement.getAttribute("data-theme");
+    const nx=now==="dark"?"light":now==="light"?"":"dark";
+    if(nx)document.documentElement.setAttribute("data-theme",nx);
+    else document.documentElement.removeAttribute("data-theme");
+    try{localStorage.setItem(THEME,nx);}catch(e){}
+  });
+})();
+
+/* ---------- 書き出し ---------- */
+function toCsv(){
+  const head=["date","type","type_name","dist_km","time_sec","time","pace_per_km","rpe","hr",
+    "cadence_spm","ascent_m","kcal","weight","pain","shoe","source","file","memo"];
+  const q=v=>{
+    const s=String(v==null?"":v);
+    return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  };
+  const rows=state.logs.slice().sort((a,b)=>a.date<b.date?-1:1).map(l=>[
+    l.date,l.type,TYPE(l.type).nm,l.dist||"",l.sec||"",l.sec?fmtSec(l.sec):"",
+    (l.dist>0&&l.sec>0)?fmtSec(Math.round(l.sec/l.dist)):"",
+    l.rpe||"",l.hr||"",l.cad||"",l.asc||"",l.kcal||"",l.wt||"",l.pain||0,
+    l.shoe||"",l.src||"",l.file||"",l.memo||""
+  ].map(q).join(","));
+  return head.join(",")+"\n"+rows.join("\n")+"\n";
+}
+$("#csvBtn").addEventListener("click",()=>{
+  const p=$("#dumpPanel");
+  p.open=true;p.style.display="block";
+  $("#dump").value=toCsv();
+  $("#msg").textContent="CSVを表示しました。コピーして records/ に保存してください。";
+  p.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+$("#dumpBtn").addEventListener("click",()=>{
+  const p=$("#dumpPanel");
+  p.open=true;p.style.display="block";
+  $("#dump").value=JSON.stringify(state,null,1);
+  $("#msg").textContent="";
+  p.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+$("#copyBtn").addEventListener("click",async()=>{
+  const ta=$("#dump");
+  ta.select();
+  try{await navigator.clipboard.writeText(ta.value);$("#msg").textContent="コピーしました。";}
+  catch(e){$("#msg").textContent="自動コピーできませんでした。手動で選択してコピーしてください。";}
+});
+$("#restoreBtn").addEventListener("click",()=>{
+  let d;
+  try{d=JSON.parse($("#dump").value);}
+  catch(e){$("#msg").textContent="JSONとして読めません。バックアップした内容を貼り付けてください。";return;}
+  if(!d||!Array.isArray(d.logs)){$("#msg").textContent="この台帳のバックアップではないようです。";return;}
+  const btn=$("#restoreBtn");
+  if(btn.dataset.arm!=="1"){
+    btn.dataset.arm="1";
+    btn.textContent="本当に置き換える（いまの記録は消えます）";
+    btn.classList.add("btn-primary");
+    $("#msg").textContent="いまの記録 "+state.logs.length+" 件を、貼り付けた "+d.logs.length+
+      " 件で置き換えます。よければもう一度押してください。";
+    setTimeout(()=>{btn.dataset.arm="";btn.textContent="この内容で復元";
+      btn.classList.remove("btn-primary");},8000);
+    return;
+  }
+  btn.dataset.arm=""; btn.textContent="この内容で復元"; btn.classList.remove("btn-primary");
+  state=d;migrate();save();pushAll();render();
+  $("#msg").textContent="復元しました。";
+});
+
+render();
+initSync();
+</script>
+</body>
+</html>

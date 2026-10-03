@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 練習記録のバックアップ（個人の記録を含むためコミットしない）
+records/backup-*.json
+*.local.json
+backup/
+export/
