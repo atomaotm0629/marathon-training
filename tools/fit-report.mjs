@@ -332,6 +332,14 @@ function report(a, opt) {
 }
 
 /* ---------- 入口 ---------- */
+/* 他のスクリプトから parseFit だけを使いたいことがあるので、
+   直接このファイルを実行したときだけコマンドとして動かす */
+import { pathToFileURL } from 'node:url';
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
+
+function main() {
 const args = process.argv.slice(2);
 const opt = { maxhr: null, goal: null, goalPace: null };
 const paths = [];
@@ -382,4 +390,5 @@ if (done.length > 1) {
   const tot = done.reduce((a, s) => a + s.km, 0), tsec = done.reduce((a, s) => a + s.sec, 0);
   console.log(`  合計 ${r1(tot)} km / ${hms(tsec)}`);
   console.log('');
+}
 }
