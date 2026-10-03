@@ -171,6 +171,19 @@ label.btn{display:inline-block;width:auto}
 .detail .note{font-size:12px;color:var(--ink-2);margin:6px 0 0}
 .detail .note b{color:var(--ink)}
 .detail .warn{color:var(--warn)}
+.detail .edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+  gap:8px 10px;margin:8px 0 0}
+.detail .edit .field{margin:0}
+.detail .edit .wide{grid-column:1/-1}
+.detail textarea{min-height:62px;font-family:inherit;font-size:13px;line-height:1.6}
+.detail .seen{background:var(--accent-soft);border-left:3px solid var(--accent);
+  padding:10px 12px;margin:8px 0 0;font-size:13px;line-height:1.75;color:var(--ink-2);
+  white-space:pre-wrap}
+.detail .seen b{color:var(--ink)}
+.detail .saved{font-size:11px;color:var(--leaf);margin:6px 0 0;min-height:15px}
+.bar-i{display:block;height:9px;border-radius:2px;background:var(--leaf)}
+.sub-note{font-size:12px;color:var(--ink-2);margin:8px 0 0}
+.sub-note b{color:var(--ink)}
 .fitrow input,.fitrow select{padding:4px 6px;font-size:13px}
 .fitrow.dup{color:var(--ink-3)}
 .dumpbox{display:none}
@@ -375,6 +388,9 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-si
     <div class="panel">
       <div class="tbl-wrap"><table id="weekTbl"></table></div>
     </div>
+
+    <h2>ジョグの効率（成長の目安）</h2>
+    <div class="panel" id="effPanel"></div>
 
     <h2>記録</h2>
     <div class="panel">
@@ -627,9 +643,17 @@ async function initSync(){
   },()=>{}));
   dbSubs.push(DB.collection("logs").onSnapshot(qs=>{
     const next=qs.docs.filter(d=>d.exists).map(d=>d.data());
-    const a=JSON.stringify(next.map(l=>l.lid).sort());
-    const b=JSON.stringify(state.logs.map(l=>l.lid).sort());
-    if(a===b&&JSON.stringify(next.length)===JSON.stringify(state.logs.length))return;
+    /* 記録が増えた時だけでなく、所見やメモが書き加わった時も反映する */
+    const key=ls=>JSON.stringify(ls.slice()
+      .sort((a,b)=>a.lid<b.lid?-1:a.lid>b.lid?1:0));
+    if(key(next)===key(state.logs))return;
+    if(editing){
+      /* いま打っている欄だけは、よその変更で上書きしない */
+      const cur=state.logs.find(l=>l.lid===editing.lid);
+      const rm=next.find(l=>l.lid===editing.lid);
+      if(cur&&rm)rm[editing.k]=cur[editing.k];
+      state.logs=next; migrate(); save(); pendingRender=true; return;
+    }
     state.logs=next; migrate(); save(); render();
   },()=>{}));
 }
@@ -659,6 +683,7 @@ function migrate(){
     l.kcal=Number(l.kcal)||null;
     if(typeof l.shoe!=="string")l.shoe="";
     if(typeof l.memo!=="string")l.memo="";
+    if(typeof l.note!=="string")l.note="";
     if(l.an&&typeof l.an!=="object")l.an=null;
     if(typeof l.src!=="string")l.src="";
     if(typeof l.file!=="string")l.file="";
@@ -707,12 +732,14 @@ function weekAgg(){
   const map=new Map();
   state.logs.forEach(l=>{
     const ws=weekStart(l.date);
-    if(!map.has(ws))map.set(ws,{ws:ws,dist:0,sec:0,n:0,days:new Set(),long:0,pain:0});
+    if(!map.has(ws))map.set(ws,{ws:ws,dist:0,sec:0,n:0,days:new Set(),long:0,pain:0,
+      hrs:0,hrn:0});
     const a=map.get(ws);
     a.n++;a.days.add(l.date);
     if(l.pain>=2)a.pain++;
     if(TYPE(l.type).run){
       a.dist+=l.dist;a.sec+=l.sec;
+      if(l.hr>0&&l.sec>0){a.hrs+=l.hr*l.sec;a.hrn+=l.sec;}
       if(l.dist>a.long)a.long=l.dist;
     }
   });
@@ -853,9 +880,84 @@ function render(){
   renderSplits();
   renderChart();
   renderWeekTable();
+  renderEff();
   renderLogs();
   renderShoes();
   renderCfg();
+}
+
+/* 同じくらいの強度で走ったときに、心拍1拍あたりどれだけ進めたか。
+   有酸素の土台が育つと、この数字はゆっくり増えていく。
+   強度が違う練習どうしでは比べられないので、ジョグの範囲だけを並べる */
+function renderEff(){
+  const el=$("#effPanel"), m=hrMax();
+  if(!el)return;
+  if(!m){
+    el.innerHTML='<p class="hint" style="margin:0">最大心拍か年齢を設定すると、'+
+      'ジョグの効率を並べて成長が見えるようになります。</p>';
+    return;
+  }
+  const rows=state.logs
+    .filter(l=>TYPE(l.type).run&&l.hr>0&&l.dist>=3&&l.sec>0)
+    .map(l=>{
+      const raw=l.hr/m.v;
+      const mv=(l.an&&l.an.mv>0)?l.an.mv:l.sec;
+      return {l:l,raw:raw,pct:Math.round(raw*100),pace:mv/l.dist,
+              eff:(l.dist*1000/(mv/60))/l.hr};
+    })
+    .filter(x=>x.raw>=0.65&&x.raw<=0.82)
+    .sort((a,b)=>a.l.date<b.l.date?-1:1);
+  /* 強度が違う練習は、効率を並べても意味がないので外す。外したことは伝える */
+  const out=state.logs.filter(l=>TYPE(l.type).run&&l.hr>0&&l.dist>=3&&l.sec>0)
+    .filter(l=>l.hr/m.v>0.82);
+  const help='<p class="hint">ジョグの範囲（心拍が最大の65〜82%）で3 km以上走った記録だけを並べています。'+
+    '<b>効率＝心拍1拍あたりに進んだ距離（m）</b>。数字が増えていれば、同じ心拍でより速く走れる'+
+    '体になったということです。ペースと効率は、時計が止まっていた時間が分かる記録では'+
+    'それを除いて計算しています。</p>';
+  if(!rows.length){
+    el.innerHTML='<p class="hint" style="margin:0">まだジョグの記録がありません。心拍を '+
+      eCeil()+' 拍以下に抑えたジョグを重ねると、ここに推移が出ます。</p>';
+    return;
+  }
+  const mx=Math.max.apply(null,rows.map(x=>x.eff));
+  let h='<div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="num">距離</th>'+
+    '<th class="num">ペース</th><th class="num">心拍</th><th class="num">最大比</th>'+
+    '<th class="num">効率<small style="font-weight:400;color:var(--ink-3)"> m/拍</small></th>'+
+    '<th></th></tr></thead><tbody>';
+  rows.forEach((x,i)=>{
+    const up=i>0?x.eff-rows[i-1].eff:null;
+    h+='<tr><td><span class="mono">'+md(x.l.date)+'</span></td>'+
+      '<td class="num">'+r1(x.l.dist)+'</td>'+
+      '<td class="num">'+fmtPace(x.pace)+'</td>'+
+      '<td class="num">'+x.l.hr+'</td>'+
+      '<td class="num" style="color:var(--ink-3)">'+x.pct+'%</td>'+
+      '<td class="num"><b>'+(Math.round(x.eff*100)/100).toFixed(2)+'</b>'+
+        (up!=null?' <small style="font-weight:400;color:'+
+          (up>=0?"var(--leaf)":"var(--ink-3)")+'">'+(up>=0?"+":"")+
+          (Math.round(up*100)/100).toFixed(2)+'</small>':'')+'</td>'+
+      '<td style="width:30%"><i class="bar-i" style="width:'+
+        Math.max(4,Math.round(x.eff/mx*100))+'%"></i></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  if(rows.length>=3){
+    const f=rows[0], t=rows[rows.length-1];
+    const d=(t.eff-f.eff)/f.eff*100;
+    h+='<p class="sub-note">'+md(f.l.date)+' から '+md(t.l.date)+' で <b>'+
+      (d>=0?"+":"")+(Math.round(d*10)/10)+'%</b>。'+
+      (d>=3?'土台が育っています。この強度のジョグを続けてください。'
+       :d>=-3?'まだ横ばい。本数が増えるにつれて動いてきます。'
+       :'下がっています。疲れが残っていないか、睡眠と休養日を見直してください。')+'</p>';
+  }else{
+    h+='<p class="sub-note" style="color:var(--ink-3)">推移として読むには、'+
+      '同じくらいの強度のジョグが3本以上必要です。いまは '+rows.length+' 本。</p>';
+  }
+  if(out.length){
+    h+='<p class="sub-note" style="color:var(--ink-3)">ほかに '+out.length+
+      ' 本（'+out.map(l=>md(l.date)).join("・")+'）は、心拍が最大の 82% を超えていて'+
+      'ジョグより強い練習だったため、この表から外しています。強度が違う練習どうしでは'+
+      '効率を比べられません。</p>';
+  }
+  el.innerHTML=h+help;
 }
 
 let cfgTimer=null;
@@ -1062,7 +1164,8 @@ function renderWeekTable(){
   const rows=[...wk.values()].sort((a,b)=>a.ws<b.ws?1:-1).slice(0,10);
   if(!rows.length){$("#weekTbl").innerHTML='<tbody><tr><td class="empty">まだ記録がありません。</td></tr></tbody>';return;}
   let h='<thead><tr><th>週</th><th class="num">距離</th><th class="num">計画</th>'+
-    '<th class="num">時間</th><th class="num">平均</th><th class="num">最長</th><th class="num">回数</th></tr></thead><tbody>';
+    '<th class="num">時間</th><th class="num">平均</th><th class="num">心拍</th>'+
+    '<th class="num">最長</th><th class="num">回数</th></tr></thead><tbody>';
   rows.forEach(a=>{
     const p=PLAN.find(x=>x.s===a.ws);
     const tgt=p?p.km[ti]:null;
@@ -1074,6 +1177,7 @@ function renderWeekTable(){
       '<td class="num" style="color:var(--ink-3)">'+(tgt!=null?tgt:"—")+'</td>'+
       '<td class="num">'+fmtSec(a.sec)+'</td>'+
       '<td class="num">'+(a.dist>0&&a.sec>0?fmtPace(a.sec/a.dist):"—")+'</td>'+
+      '<td class="num">'+(a.hrn?Math.round(a.hrs/a.hrn):"—")+'</td>'+
       '<td class="num">'+r1(a.long)+'</td>'+
       '<td class="num">'+a.days.size+'</td></tr>';
   });
@@ -1081,11 +1185,40 @@ function renderWeekTable(){
 }
 
 let openLog=null, delArm=null, delTimer=null;
+/* 詳細の中の入力。打っている最中に画面を作り直すと入力中の欄から
+   カーソルが外れるので、入力が終わるまで作り直しを待たせる */
+let editing=null, pendingRender=false, editTimer=null;
 
 /* 取り込み時に計算しておいた解析を、表とバーで見せる */
+/* 記録そのものに振り返りを残せるようにする。入力した時点で保存し、同期もする */
+function editHtml(l){
+  const rpe=[1,2,3,4,5,6,7,8,9,10].map(n=>
+    '<option value="'+n+'"'+(Number(l.rpe)===n?' selected':'')+'>'+n+'</option>').join("");
+  const pain=[[0,"なし"],[1,"違和感"],[2,"痛みあり"]].map(x=>
+    '<option value="'+x[0]+'"'+(Number(l.pain||0)===x[0]?' selected':'')+'>'+x[1]+'</option>').join("");
+  const d=' data-lid="'+l.lid+'"';
+  return '<h4>振り返り（入力するとその場で保存されます）</h4><div class="edit">'+
+    '<div class="field"><label>体感 RPE</label>'+
+      '<select data-edit="rpe"'+d+'><option value="">—</option>'+rpe+'</select></div>'+
+    '<div class="field"><label>痛み</label>'+
+      '<select data-edit="pain"'+d+'>'+pain+'</select></div>'+
+    '<div class="field"><label>体重 kg</label>'+
+      '<input type="number" step="0.1" min="0" data-edit="wt"'+d+' value="'+(l.wt||"")+'"></div>'+
+    '<div class="field"><label>シューズ</label>'+
+      '<input type="text" list="shoeList" data-edit="shoe"'+d+' value="'+esc(l.shoe)+'"></div>'+
+    '<div class="field wide"><label>この練習のメモ・次に直したいこと</label>'+
+      '<textarea data-edit="memo"'+d+
+      ' placeholder="体の感じ、天気、うまくいったこと、次に直したいこと">'+esc(l.memo)+'</textarea></div>'+
+    '</div><p class="saved" data-saved="'+l.lid+'"></p>';
+}
+
 function detailHtml(l){
   const a=l.an, H=[];
   const m=hrMax(), ec=eCeil();
+
+  if(l.note)H.push('<h4>コーチの所見</h4><div class="seen">'+esc(l.note)+'</div>');
+  H.push(editHtml(l));
+  if(!(a&&a.sp&&a.sp.length))return H.join("");
 
   if(a.st){
     const mvPace=(l.dist>0&&a.mv)?a.mv/l.dist:null;
@@ -1191,18 +1324,18 @@ function renderLogs(){
     if(l.shoe)sub.push(esc(l.shoe));
     if(l.pain==1)sub.push("違和感");
     if(l.pain>=2)sub.push("痛みあり");
-    if(l.memo)sub.push(esc(l.memo));
-    const hasAn=!!(l.an&&l.an.sp&&l.an.sp.length);
-    const open=hasAn&&openLog===l.lid;
+    if(l.memo)sub.push(esc(l.memo.replace(/\s+/g," ").slice(0,36)));
+    const open=openLog===l.lid;
     return '<li class="logitem" style="--tc:'+t.c+'">'+
       '<span class="stripe"></span>'+
-      '<span class="body"'+(hasAn?' data-exp="'+l.lid+'" role="button" tabindex="0"':'')+
+      '<span class="body" data-exp="'+l.lid+'" role="button" tabindex="0"'+
       '><span class="l1">'+
         '<span class="d">'+md(l.date)+'</span>'+
         '<span class="t">'+esc(t.nm)+'</span>'+
         (l.src==="fit"?'<span class="t" style="--tc:var(--ink-3)" title="'+esc(l.file)+'">時計</span>':'')+
+        (l.note?'<span class="t" style="--tc:var(--accent)">所見</span>':'')+
         (l.pain>=2?'<span class="t" style="--tc:var(--alert)">要注意</span>':'')+
-        (hasAn?'<span class="caret">'+(open?"▲ 閉じる":"▼ 詳しく")+'</span>':'')+
+        '<span class="caret">'+(open?"▲ 閉じる":"▼ 詳しく・振り返り")+'</span>'+
       '</span><span class="l2">'+sub.join(" ／ ")+'</span></span>'+
       '<span class="n">'+(t.run?r1(l.dist)+'<small> km</small>':'—')+
         (delArm===l.lid
@@ -1715,11 +1848,45 @@ $("#logs").addEventListener("click",e=>{
 
 $("#logs").addEventListener("keydown",e=>{
   if(e.key!=="Enter"&&e.key!==" ")return;
+  if(e.target.closest("[data-edit]"))return;   /* 入力欄の中では開閉しない */
   const x=e.target.closest("[data-exp]");
   if(!x)return;
   e.preventDefault();
   openLog=(openLog===x.dataset.exp)?null:x.dataset.exp;
   renderLogs();
+});
+
+function flashSaved(lid){
+  const el=document.querySelector('[data-saved="'+lid+'"]');
+  if(!el)return;
+  el.textContent="保存しました";
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{if(el.textContent==="保存しました")el.textContent="";},1600);
+}
+$("#logs").addEventListener("input",e=>{
+  const el=e.target.closest("[data-edit]");
+  if(!el)return;
+  const l=state.logs.find(x=>x.lid===el.dataset.lid);
+  if(!l)return;
+  const k=el.dataset.edit, v=el.value;
+  if(k==="rpe")l.rpe=parseInt(v,10)||null;
+  else if(k==="pain")l.pain=parseInt(v,10)||0;
+  else if(k==="wt")l.wt=parseFloat(v)||null;
+  else l[k]=v;
+  editing={lid:l.lid,k:k};
+  save();
+  clearTimeout(editTimer);
+  editTimer=setTimeout(()=>{pushLog(l);flashSaved(l.lid);},600);
+});
+/* 入力欄から離れたら、待たせていた画面の作り直しをここで行う */
+$("#logs").addEventListener("focusout",e=>{
+  if(!e.target.closest("[data-edit]"))return;
+  setTimeout(()=>{
+    const a=document.activeElement;
+    if(a&&a.closest&&a.closest("[data-edit]"))return;
+    editing=null;
+    if(pendingRender){pendingRender=false;render();}
+  },0);
 });
 
 $("#fRace").addEventListener("change",e=>{
@@ -1761,7 +1928,7 @@ document.querySelectorAll(".dayBtn").forEach(b=>{
 /* ---------- 書き出し ---------- */
 function toCsv(){
   const head=["date","type","type_name","dist_km","time_sec","time","pace_per_km","rpe","hr",
-    "cadence_spm","ascent_m","kcal","weight","pain","shoe","source","file","memo"];
+    "cadence_spm","ascent_m","kcal","weight","pain","shoe","source","file","memo","note"];
   const q=v=>{
     const s=String(v==null?"":v);
     return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
@@ -1770,7 +1937,7 @@ function toCsv(){
     l.date,l.type,TYPE(l.type).nm,l.dist||"",l.sec||"",l.sec?fmtSec(l.sec):"",
     (l.dist>0&&l.sec>0)?fmtSec(Math.round(l.sec/l.dist)):"",
     l.rpe||"",l.hr||"",l.cad||"",l.asc||"",l.kcal||"",l.wt||"",l.pain||0,
-    l.shoe||"",l.src||"",l.file||"",l.memo||""
+    l.shoe||"",l.src||"",l.file||"",l.memo||"",l.note||""
   ].map(q).join(","));
   return head.join(",")+"\n"+rows.join("\n")+"\n";
 }
