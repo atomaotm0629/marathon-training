@@ -291,13 +291,21 @@ function report(a, opt) {
     for (const z of a.Z) L.push(row(`${z.nm} ${z.range}`, z.n));
   }
 
-  if (a.decouple != null) {
+  /* 心拍ドリフトは、走り出しの心拍の立ち上がりに前半を食われるため、
+     短い走りでは当てにならない。20分未満は出さず、40分未満は数字だけ出す */
+  const dcSec = a.sum.moveSec || a.sum.sec || 0;
+  if (a.decouple != null && dcSec >= 1200) {
     L.push('');
     L.push('── 心拍ドリフト ' + '─'.repeat(44));
     L.push(`  前半と後半で、同じ速度に対する心拍が ${a.decouple >= 0 ? '+' : ''}${r1(a.decouple)}% 変化`);
-    L.push(`  ${a.decouple > 8 ? '→ 有酸素の土台がまだ薄い。この強度は今の走力に対して高すぎます'
-            : a.decouple > 5 ? '→ やや高め。同じ距離をもう少し遅く走れると良い'
-            : '→ 良好。この強度なら持続できています'}`);
+    if (dcSec < 2400) {
+      L.push('  → 参考値。40分未満の走りでは、走り出しの心拍の立ち上がりに');
+      L.push('     前半を食われるため、この数字で強度は判断できません');
+    } else {
+      L.push(`  ${a.decouple > 8 ? '→ 有酸素の土台がまだ薄い。この強度は今の走力に対して高すぎます'
+              : a.decouple > 5 ? '→ やや高め。同じ距離をもう少し遅く走れると良い'
+              : '→ 良好。この強度なら持続できています'}`);
+    }
   }
 
   if (a.lock) {
