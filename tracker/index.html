@@ -244,6 +244,11 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-si
   </div>
   <div class="tbl-wrap"><table id="menuTbl"></table></div>
   <p class="hint" id="menuNote"></p>
+  <p class="hint" style="border-top:1px solid var(--line);padding-top:8px;margin-top:10px">
+    <b>P</b> は準備期の週（P1〜P5・2026/9/14〜10/18）、<b>W</b> は本番の計画の週
+    （W1〜W18・10/19〜レース当日）。あわせて23週です。
+    期は 準備 → 土台 → 走力 → 特異 → 仕上げ → 調整 → レース と進みます（docs/05-plan.md）。
+  </p>
 </div>
 
 <div class="cols">
@@ -528,6 +533,14 @@ const PLAN=[
    nt:"レース週。2/21 京都マラソン2027"}
 ];
 const TIERS=["A","B","C"];
+/* 期の名前。P＝準備期（5週）、W＝本番の計画（18週）。
+   記号だけでは意味が分からないので、画面には必ず言葉を添える */
+const PHASE={prep:"準備期",base:"土台期",power:"走力期",spec:"特異期",
+             peak:"仕上げ期",taper:"調整期",race:"レース週"};
+const phName=p=>PHASE[p.ph]||"";
+/* 「全23週の何週目か」。P1が1週目、W18が23週目 */
+const phNth=p=>PLAN.findIndex(x=>x.w===p.w)+1;
+const phLabel=p=>phName(p)+' '+p.w+'週（全23週の'+phNth(p)+'週目）';
 const planOf=iso=>PLAN.find(p=>p.s===weekStart(iso))||null;
 
 /* ---------- 保存 ---------- */
@@ -869,7 +882,7 @@ function renderMenu(){
   }
   tbl.innerHTML=h+'</tbody>';
   const sum=days.reduce((a,v)=>a+((v&&!v.rest&&!v.race)?v.dist:0),0);
-  note.innerHTML='<b>'+pl.w+'週：'+esc(pl.nt)+'</b><br>'+
+  note.innerHTML='<b>'+esc(phLabel(pl))+'：'+esc(pl.nt)+'</b><br>'+
     (pl.ph==="race"
       ? '本番を除いた合計 <span class="mono">'+r1(sum)+' km</span>。'+
         '<b>ここで走り込んでも本番には間に合いません。脚を休ませることが仕事です。</b>'
@@ -1027,7 +1040,8 @@ function renderWeekBanner(){
   const done=wk?wk.dist:0;
   const left=Math.max(0,p.km[ti]-done);
   el.hidden=false;
-  el.innerHTML='<b>'+p.w+'週（'+md(p.s)+'〜'+md(addDays(p.s,6))+'）：'+esc(p.nt)+'</b><br>'+
+  el.innerHTML='<b>'+esc(phName(p))+' '+p.w+'週　'+md(p.s)+'〜'+md(addDays(p.s,6))+
+    '（全23週の'+phNth(p)+'週目）<br>'+esc(p.nt)+'</b><br>'+
     'プラン'+state.cfg.tier+'の目標 <span class="mono">'+p.km[ti]+' km</span>'+
     '（ロング走 <span class="mono">'+p.lg[ti]+' km</span>）。'+
     '消化 <span class="mono">'+r1(done)+' km</span>、残り <span class="mono">'+r1(left)+' km</span>。';
@@ -1181,7 +1195,8 @@ function renderWeekTable(){
     const ratio=tgt?a.dist/tgt:null;
     const col=ratio==null?"var(--ink-3)":ratio>=0.9?"var(--leaf)":ratio>=0.7?"var(--warn)":"var(--alert)";
     h+='<tr><td><span class="mono">'+md(a.ws)+'</span>'+
-      (p?' <span class="pill">'+p.w+'</span>':'')+'</td>'+
+      (p?' <span class="pill" title="'+esc(phName(p))+'（全23週の'+phNth(p)+'週目）">'+
+        p.w+'</span>':'')+'</td>'+
       '<td class="num" style="color:'+col+'"><b>'+r1(a.dist)+'</b></td>'+
       '<td class="num" style="color:var(--ink-3)">'+(tgt!=null?tgt:"—")+'</td>'+
       '<td class="num">'+fmtSec(a.sec)+'</td>'+
