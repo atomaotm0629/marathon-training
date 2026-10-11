@@ -1238,18 +1238,27 @@ function detailHtml(l){
       (mvPace?'　動いている時だけなら 平均 <b>'+fmtPace(mvPace)+'</b>/km':'')+'</p>');
   }
 
+  const hasCv=a.sp.some(x=>x[6]!=null);
   H.push('<h4>1 kmごと</h4><div class="tbl-wrap"><table><thead><tr>'+
     '<th class="num">km</th><th class="num">ラップ</th><th class="num">心拍</th>'+
-    '<th class="num">ピッチ</th><th class="num">停止</th></tr></thead><tbody>'+
+    '<th class="num">ピッチ</th>'+(hasCv?'<th class="num">ばらつき</th>':'')+
+    '<th class="num">停止</th></tr></thead><tbody>'+
     a.sp.map(x=>{
       const over=ec&&x[2]&&x[2]>ec;
+      /* ばらつきが大きい＝小刻みに加減速していた＝同じペースでも心拍が上がる */
+      const cv=x[6], rough=cv!=null&&cv>=7;
       return '<tr><td class="num">'+x[0]+
         (x[5]?' <small style="color:var(--ink-3);font-weight:400">端数</small>':'')+'</td>'+
         '<td class="num">'+fmtPace(x[1])+'</td>'+
         '<td class="num'+(over?' warn':'')+'">'+(x[2]||"—")+'</td>'+
         '<td class="num">'+(x[3]||"—")+'</td>'+
+        (hasCv?'<td class="num"'+(rough?' style="color:var(--warn)"':' style="color:var(--ink-3)"')+'>'+
+          (cv!=null?cv+'%':'—')+'</td>':'')+
         '<td class="num" style="color:var(--ink-3)">'+(x[4]?x[4]+"秒":"")+'</td></tr>';
-    }).join("")+'</tbody></table></div>');
+    }).join("")+'</tbody></table></div>'+
+    (hasCv?'<p class="note" style="color:var(--ink-3)">「ばらつき」は区間内でペースがどれだけ揺れたか。'+
+      '7%を超えると小刻みに加減速しています（信号・人通り・車）。'+
+      '<b>平均ペースが同じでも、ばらつきが大きいと心拍は上がります。</b></p>':''));
   const laps=a.sp.filter(x=>!x[5]).map(x=>x[1]);
   if(laps.length>1){
     const f=Math.min(...laps), sl=Math.max(...laps);
@@ -1320,24 +1329,52 @@ function detailHtml(l){
     }
   }
   if(a.lk){
-    const lockSus=(a.lk[0]>0.7&&a.lk[1]>60)||rev.length>=2;
     fin.push('心拍とピッチの相関 r='+a.lk[0]+'、差が±3拍以内 '+a.lk[1]+'%。'+
-      (lockSus
+      (a.lk[0]>0.7&&a.lk[1]>60
         ? '<span class="warn">ケイデンスロック（歩数を心拍として拾う誤動作）の疑いがあります。</span>'
         : '歩数を拾う誤動作は起きていません。'));
   }
   if(rev.length){
-    H.push('<h4 class="warn">心拍データの矛盾</h4>'+
-      '<p class="note">ペースが落ちていないのに心拍が大きく動いた区間が <b>'+rev.length+
-      '箇所</b>あります。体には起こらない変化なので、<b>この日の心拍は当てになりません。</b></p>'+
+    /* 心拍の高い区間と低い区間で、ペースのばらつきが違うかを見る。
+       違えば「走り方（小刻みな加減速）が変わったせい」で心拍は正しい。
+       同じなら計測を疑う。隣り合う区間の差ではなく、全体を2つに分けて比べる */
+    const cvOk=a.sp.some(x=>x[6]!=null);
+    const cvOf=k=>{const r=a.sp.find(x=>x[0]===k);return r?r[6]:null;};
+    let gap=false, cvLo=null, cvHi=null;
+    if(cvOk){
+      const f=a.sp.filter(x=>!x[5]&&x[2]&&x[6]!=null);
+      if(f.length>=4){
+        const med=[...f.map(x=>x[2])].sort((u,v)=>u-v)[f.length>>1];
+        const L=f.filter(x=>x[2]<med).map(x=>x[6]), Hh=f.filter(x=>x[2]>=med).map(x=>x[6]);
+        if(L.length&&Hh.length){
+          cvLo=avg(L); cvHi=avg(Hh);
+          gap=(cvHi-cvLo>=1.5)&&(cvHi>=cvLo*1.35);
+        }
+      }
+    }
+    H.push('<h4>心拍とペースが逆に動いた区間</h4>'+
       '<div class="tbl-wrap"><table><thead><tr><th class="num">区間</th>'+
-      '<th class="num">心拍の変化</th><th class="num">ラップの変化</th></tr></thead><tbody>'+
-      rev.map(x=>'<tr><td class="num">'+x[0]+' → '+x[1]+' km</td>'+
-        '<td class="num warn">'+(x[2]>0?"+":"")+x[2]+' 拍</td>'+
-        '<td class="num">'+(x[3]>0?"+":"")+x[3]+' 秒</td></tr>').join("")+
-      '</tbody></table></div>'+
-      '<p class="note">時計を手首の骨から指2〜3本ぶん上に、走る間だけきつめに締めると直ります。'+
-      '直らなければ胸ベルト式を検討してください。</p>');
+      '<th class="num">心拍の変化</th><th class="num">ラップの変化</th>'+
+      (cvOk?'<th class="num">ばらつきの変化</th>':'')+'</tr></thead><tbody>'+
+      rev.map(x=>{
+        const u=cvOf(x[0]), v=cvOf(x[1]);
+        return '<tr><td class="num">'+x[0]+' → '+x[1]+' km</td>'+
+          '<td class="num">'+(x[2]>0?"+":"")+x[2]+' 拍</td>'+
+          '<td class="num">'+(x[3]>0?"+":"")+x[3]+' 秒</td>'+
+          (cvOk?'<td class="num">'+(u!=null&&v!=null?
+            (v-u>0?"+":"")+(Math.round((v-u)*10)/10)+'%':'—')+'</td>':'')+'</tr>';
+      }).join("")+'</tbody></table></div>'+
+      (gap
+        ? '<p class="note">心拍の高い区間はばらつきが <b>'+(Math.round(cvHi*10)/10)+
+          '%</b>、低い区間は <b>'+(Math.round(cvLo*10)/10)+'%</b>。'+
+          '<b>走り方が変わったためで、心拍は正しく出ています。</b>'+
+          '同じ平均ペースでも、小刻みに加減速すると心拍は上がります'+
+          '（信号・人通り・車のある道）。'+
+          '<b>心拍を一定に保ちたい練習は、止まらずに走れる道を選んでください。</b></p>'
+        : '<p class="note">ペースのばらつきでは説明がつきません。'+
+          '走り出しからの立ち上がり・上り下り・気温などで説明がつかない場合は、'+
+          '<b>心拍の計測を疑ってください。</b>時計を手首の骨から指2〜3本ぶん上に、'+
+          '走る間だけきつめに締めると直ることがあります。</p>'));
   }
   if(m&&l.hr){
     const pct=Math.round(l.hr/m.v*100);
@@ -1734,24 +1771,32 @@ function analyzeFit(recs,sn){
   const st=pts.filter(p=>p.stop).reduce((a,p)=>a+p.dt,0);
   const mv=pts.reduce((a,p)=>a+p.dt,0)-st;
 
-  /* 1 kmごと：[km, ラップ秒, 心拍, ピッチ, 停止秒] */
+  /* 区間内でペースがどれだけ揺れたか。小刻みな加減速の多い道路区間では
+     大きくなり、同じ平均ペースでも心拍が上がる。これが無いと
+     「ペースは一定なのに心拍だけ高い」区間の理由が読めない */
+  const cvOf=a=>{
+    const v=a.filter(x=>x.sp>0).map(x=>x.sp);
+    if(v.length<20)return null;
+    const m=avg(v);
+    if(!(m>0))return null;
+    return Math.round(Math.sqrt(avg(v.map(x=>(x-m)*(x-m))))/m*1000)/10;
+  };
+  /* 1 kmごと：[km, ラップ秒, 心拍, ピッチ, 停止秒, 端数か, ばらつき%] */
   const sp=[]; let markD=0,markT=pts[0].t,seg=[];
+  const row=(km,lap,a,partial)=>[km,lap,
+    a.some(x=>x.hr)?Math.round(avg(a.filter(x=>x.hr).map(x=>x.hr))):null,
+    a.some(x=>x.cad)?Math.round(avg(a.filter(x=>x.cad).map(x=>x.cad))):null,
+    a.filter(x=>x.stop).reduce((n,x)=>n+x.dt,0), partial, cvOf(a)];
   for(const p of pts){
     seg.push(p);
     while(p.cum-markD>=1000){
       markD+=1000;
-      sp.push([markD/1000,p.t-markT,
-        seg.some(x=>x.hr)?Math.round(avg(seg.filter(x=>x.hr).map(x=>x.hr))):null,
-        seg.some(x=>x.cad)?Math.round(avg(seg.filter(x=>x.cad).map(x=>x.cad))):null,
-        seg.filter(x=>x.stop).reduce((a,x)=>a+x.dt,0)]);
+      sp.push(row(markD/1000,p.t-markT,seg,0));
       markT=p.t; seg=[];
     }
   }
   if(seg.length&&dist-markD>150){
-    sp.push([Math.round(dist/100)/10,seg[seg.length-1].t-markT,
-      seg.some(x=>x.hr)?Math.round(avg(seg.filter(x=>x.hr).map(x=>x.hr))):null,
-      seg.some(x=>x.cad)?Math.round(avg(seg.filter(x=>x.cad).map(x=>x.cad))):null,
-      seg.filter(x=>x.stop).reduce((a,x)=>a+x.dt,0),1]);
+    sp.push(row(Math.round(dist/100)/10,seg[seg.length-1].t-markT,seg,1));
   }
 
   /* 心拍の滞在秒数（1拍きざみ） */
