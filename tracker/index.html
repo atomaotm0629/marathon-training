@@ -1306,11 +1306,38 @@ function detailHtml(l){
         : a.dc>5?'やや高め。同じ距離をもう少し遅く走れると良い。'
         : '良好。この強度なら持続できています。'));
   }
+  /* 1 kmごとに、心拍とペースが逆に動いていないかを見る。
+     ペースが上がった（または変わらない）のに心拍が大きく下がるのは
+     体に起こらないので、それは計測の誤り。全体の相関では、
+     途切れ途切れに起こるロックは薄まって見つからない */
+  const rev=[];
+  if(a.sp&&a.sp.length>2){
+    const f=a.sp.filter(x=>!x[5]&&x[2]);
+    for(let i=1;i<f.length;i++){
+      const dh=f[i][2]-f[i-1][2], dl=f[i][1]-f[i-1][1];
+      if(Math.abs(dh)>=15&&((dh<0&&dl<=5)||(dh>0&&dl>=-5)))
+        rev.push([f[i-1][0],f[i][0],dh,Math.round(dl)]);
+    }
+  }
   if(a.lk){
+    const lockSus=(a.lk[0]>0.7&&a.lk[1]>60)||rev.length>=2;
     fin.push('心拍とピッチの相関 r='+a.lk[0]+'、差が±3拍以内 '+a.lk[1]+'%。'+
-      (a.lk[0]>0.7&&a.lk[1]>60
+      (lockSus
         ? '<span class="warn">ケイデンスロック（歩数を心拍として拾う誤動作）の疑いがあります。</span>'
         : '歩数を拾う誤動作は起きていません。'));
+  }
+  if(rev.length){
+    H.push('<h4 class="warn">心拍データの矛盾</h4>'+
+      '<p class="note">ペースが落ちていないのに心拍が大きく動いた区間が <b>'+rev.length+
+      '箇所</b>あります。体には起こらない変化なので、<b>この日の心拍は当てになりません。</b></p>'+
+      '<div class="tbl-wrap"><table><thead><tr><th class="num">区間</th>'+
+      '<th class="num">心拍の変化</th><th class="num">ラップの変化</th></tr></thead><tbody>'+
+      rev.map(x=>'<tr><td class="num">'+x[0]+' → '+x[1]+' km</td>'+
+        '<td class="num warn">'+(x[2]>0?"+":"")+x[2]+' 拍</td>'+
+        '<td class="num">'+(x[3]>0?"+":"")+x[3]+' 秒</td></tr>').join("")+
+      '</tbody></table></div>'+
+      '<p class="note">時計を手首の骨から指2〜3本ぶん上に、走る間だけきつめに締めると直ります。'+
+      '直らなければ胸ベルト式を検討してください。</p>');
   }
   if(m&&l.hr){
     const pct=Math.round(l.hr/m.v*100);

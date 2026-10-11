@@ -294,6 +294,25 @@ function report(a, opt) {
   /* 心拍ドリフトは、走り出しの心拍の立ち上がりに前半を食われるため、
      短い走りでは当てにならない。20分未満は出さず、40分未満は数字だけ出す */
   const dcSec = a.sum.moveSec || a.sum.sec || 0;
+  /* ペースが落ちていないのに心拍が大きく動く区間は、体ではなく計測の誤り */
+  const fullSp = a.splits.filter(s => !s.partial && s.hr);
+  const rev = [];
+  for (let i = 1; i < fullSp.length; i++) {
+    const dh = Math.round(fullSp[i].hr) - Math.round(fullSp[i-1].hr);
+    const dl = fullSp[i].lap - fullSp[i-1].lap;
+    if (Math.abs(dh) >= 15 && ((dh < 0 && dl <= 5) || (dh > 0 && dl >= -5)))
+      rev.push({ a: fullSp[i-1].km, b: fullSp[i].km, dh, dl: Math.round(dl) });
+  }
+  if (rev.length) {
+    L.push('');
+    L.push('── 心拍データの矛盾 ' + '─'.repeat(40));
+    L.push(`  ペースが落ちていないのに心拍が大きく動いた区間が ${rev.length}箇所`);
+    for (const x of rev)
+      L.push(`    ${pad(x.a, 4)} → ${pad(x.b, 4)} km   心拍 ${x.dh > 0 ? '+' : ''}${x.dh} 拍   ラップ ${x.dl > 0 ? '+' : ''}${x.dl} 秒`);
+    L.push('  → 体には起こらない変化です。この日の心拍は当てになりません');
+    L.push('     時計を手首の骨から指2〜3本ぶん上に、走る間だけきつめに締めてください');
+  }
+
   if (a.decouple != null && dcSec >= 1200) {
     L.push('');
     L.push('── 心拍ドリフト ' + '─'.repeat(44));
