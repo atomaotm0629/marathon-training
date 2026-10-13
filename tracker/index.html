@@ -924,7 +924,7 @@ function renderEff(){
     .map(l=>{
       const raw=l.hr/m.v;
       const mv=(l.an&&l.an.mv>0)?l.an.mv:l.sec;
-      return {l:l,raw:raw,pct:Math.round(raw*100),pace:mv/l.dist,
+      return {l:l,raw:raw,pct:Math.round(raw*100),pace:mv/l.dist,mv:mv,
               eff:(l.dist*1000/(mv/60))/l.hr};
     })
     .filter(x=>x.raw>=0.65&&x.raw<=0.82)
@@ -935,7 +935,9 @@ function renderEff(){
   const help='<p class="hint">ジョグの範囲（心拍が最大の65〜82%）で3 km以上走った記録だけを並べています。'+
     '<b>効率＝心拍1拍あたりに進んだ距離（m）</b>。数字が増えていれば、同じ心拍でより速く走れる'+
     '体になったということです。ペースと効率は、時計が止まっていた時間が分かる記録では'+
-    'それを除いて計算しています。</p>';
+    'それを除いて計算しています。<br>'+
+    '<b>比べるときは「時間」の近いものどうしで。</b>走る時間が長いほど心拍は上がっていくので、'+
+    '短い記録ほど効率は良く出ます。</p>';
   if(!rows.length){
     el.innerHTML='<p class="hint" style="margin:0">まだジョグの記録がありません。心拍を '+
       eCeil()+' 拍以下に抑えたジョグを重ねると、ここに推移が出ます。</p>';
@@ -943,13 +945,15 @@ function renderEff(){
   }
   const mx=Math.max.apply(null,rows.map(x=>x.eff));
   let h='<div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="num">距離</th>'+
-    '<th class="num">ペース</th><th class="num">心拍</th><th class="num">最大比</th>'+
+    '<th class="num">時間</th><th class="num">ペース</th><th class="num">心拍</th>'+
+    '<th class="num">最大比</th>'+
     '<th class="num">効率<small style="font-weight:400;color:var(--ink-3)"> m/拍</small></th>'+
     '<th></th></tr></thead><tbody>';
   rows.forEach((x,i)=>{
     const up=i>0?x.eff-rows[i-1].eff:null;
     h+='<tr><td><span class="mono">'+md(x.l.date)+'</span></td>'+
       '<td class="num">'+r1(x.l.dist)+'</td>'+
+      '<td class="num" style="color:var(--ink-3)">'+fmtSec(x.mv)+'</td>'+
       '<td class="num">'+fmtPace(x.pace)+'</td>'+
       '<td class="num">'+x.l.hr+'</td>'+
       '<td class="num" style="color:var(--ink-3)">'+x.pct+'%</td>'+
@@ -964,11 +968,18 @@ function renderEff(){
   if(rows.length>=3){
     const f=rows[0], t=rows[rows.length-1];
     const d=(t.eff-f.eff)/f.eff*100;
+    /* 走った時間が1.5倍以上違うと、短い方がドリフトを受けないぶん有利に出る */
+    const ratio=Math.max(f.mv,t.mv)/Math.min(f.mv,t.mv);
     h+='<p class="sub-note">'+md(f.l.date)+' から '+md(t.l.date)+' で <b>'+
       (d>=0?"+":"")+(Math.round(d*10)/10)+'%</b>。'+
-      (d>=3?'土台が育っています。この強度のジョグを続けてください。'
-       :d>=-3?'まだ横ばい。本数が増えるにつれて動いてきます。'
-       :'下がっています。疲れが残っていないか、睡眠と休養日を見直してください。')+'</p>';
+      (ratio>=1.5
+        ? '<span style="color:var(--warn)">ただし走った時間が '+fmtSec(f.mv)+' と '+
+          fmtSec(t.mv)+' で違いすぎます。短い方はドリフトの影響を受けないぶん'+
+          '有利に出るので、<b>この増減は成長とは読めません。</b></span>'+
+          '同じくらいの時間の記録どうしで比べてください。'
+        : d>=3?'土台が育っています。この強度のジョグを続けてください。'
+        : d>=-3?'まだ横ばい。本数が増えるにつれて動いてきます。'
+        : '下がっています。疲れが残っていないか、睡眠と休養日を見直してください。')+'</p>';
   }else{
     h+='<p class="sub-note" style="color:var(--ink-3)">推移として読むには、'+
       '同じくらいの強度のジョグが3本以上必要です。いまは '+rows.length+' 本。</p>';
