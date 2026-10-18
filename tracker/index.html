@@ -275,6 +275,12 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-si
           <input type="number" id="fMax" min="120" max="230" step="1" placeholder="推定値を使う">
         </div>
       </div>
+      <div class="field">
+        <label for="fRest">安静時心拍</label>
+        <input type="number" id="fRest" min="30" max="110" step="1" placeholder="分かれば入れる">
+        <p class="hint" style="margin:6px 0 0">入れるとゾーンが<b>カルボーネン法（%心拍予備）</b>で
+          計算され、精度が上がります。Zeppアプリの「安静時心拍数」が毎晩自動で記録しています。</p>
+      </div>
       <p class="hint">プラン強度とロング走の曜日は、上の「今週のメニュー」で切り替えます。<br>
         現在地の測り方は docs/02-goal.md、プランの中身は docs/05-plan.md。</p>
     </div>
@@ -680,7 +686,7 @@ async function initSync(){
   },()=>{}));
 }
 
-const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,longDay:6,
+const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,resthr:null,longDay:6,
   driveFolder:"ランニングログ"},logs:[]};
 let state=load()||JSON.parse(JSON.stringify(DEF));
 function migrate(){
@@ -689,6 +695,7 @@ function migrate(){
   if(!(state.cfg.goal>0))state.cfg.goal=18000;
   state.cfg.age=Number(state.cfg.age)||null;
   state.cfg.maxhr=Number(state.cfg.maxhr)||null;
+  state.cfg.resthr=Number(state.cfg.resthr)||null;
   if(state.cfg.longDay!==5&&state.cfg.longDay!==6)state.cfg.longDay=6;
   if(typeof state.cfg.driveFolder!=="string"||!state.cfg.driveFolder)
     state.cfg.driveFolder=DEF.cfg.driveFolder;
@@ -727,15 +734,30 @@ function hrMax(){
   if(state.cfg.age>0)return {v:Math.round(208-0.7*state.cfg.age),src:"推定"};
   return null;
 }
-/* ゾーンは最大心拍に対する割合。E の上限（79%）を超えて走るジョグは、ジョグではない */
+/* ゾーンの境界を2通り持つ。lo/hi は最大心拍に対する割合、rlo/rhi は心拍予備
+   （最大 − 安静）に対する割合。E の上限を超えて走るジョグは、ジョグではない */
 const HRZ=[
-  {k:"E",nm:"ジョグ・ロング",lo:0.65,hi:0.79},
-  {k:"M",nm:"レースペース",  lo:0.79,hi:0.87},
-  {k:"T",nm:"閾値走",        lo:0.87,hi:0.92},
-  {k:"I",nm:"インターバル",  lo:0.92,hi:1.00}
+  {k:"E",nm:"ジョグ・ロング",lo:0.65,hi:0.79,rlo:0.59,rhi:0.74},
+  {k:"M",nm:"レースペース",  lo:0.79,hi:0.87,rlo:0.74,rhi:0.84},
+  {k:"T",nm:"閾値走",        lo:0.87,hi:0.92,rlo:0.84,rhi:0.88},
+  {k:"I",nm:"インターバル",  lo:0.92,hi:1.00,rlo:0.88,rhi:1.00}
 ];
 /* 1.00 は「それ以上」の意味。表示のときは上限なしとして扱う */
-const eCeil=()=>{const m=hrMax();return m?Math.round(m.v*0.79):null;};
+/* 安静時心拍が分かっていればカルボーネン法（%心拍予備）を使う。こちらの方が正確で、
+   安静時が50前後から外れている人ほど「最大心拍の○%」との差が出る */
+const useHRR=()=>{const m=hrMax();return !!(m&&state.cfg.resthr>0&&state.cfg.resthr<m.v);};
+const FRACNM=()=>useHRR()?"心拍予備":"最大心拍";
+/* ゾーンの境界 → 心拍 */
+function hrOf(z,up){const m=hrMax();if(!m)return null;const r=state.cfg.resthr;
+  return useHRR()?Math.round(r+(up?z.rhi:z.rlo)*(m.v-r)):Math.round(m.v*(up?z.hi:z.lo));}
+/* 心拍 → 強度の割合 */
+function hrFrac(hr){const m=hrMax();if(!m)return null;const r=state.cfg.resthr;
+  return useHRR()?(hr-r)/(m.v-r):hr/m.v;}
+/* その心拍がどのゾーンか */
+const hrZone=f=>HRZ.find(z=>f<(useHRR()?z.rhi:z.hi))||HRZ[HRZ.length-1];
+/* 効率を並べる範囲。ジョグとして比べられる強度だけに絞る */
+const EFFLO=()=>useHRR()?0.45:0.65, EFFHI=()=>useHRR()?0.75:0.82;
+const eCeil=()=>{const m=hrMax();return m?hrOf(HRZ[0],true):null;};
 
 /* 5 kmごとの配分。京都の起伏（前半上り／18 km以降下り／38 km手前の上り）を反映した重み */
 const SEGW=[0.12,0.116667,0.116667,0.118333,0.115,0.116667,0.12,0.123333,0.053333];
@@ -922,17 +944,18 @@ function renderEff(){
   const rows=state.logs
     .filter(l=>TYPE(l.type).run&&l.hr>0&&l.dist>=3&&l.sec>0)
     .map(l=>{
-      const raw=l.hr/m.v;
+      const raw=hrFrac(l.hr);
       const mv=(l.an&&l.an.mv>0)?l.an.mv:l.sec;
       return {l:l,raw:raw,pct:Math.round(raw*100),pace:mv/l.dist,mv:mv,
               eff:(l.dist*1000/(mv/60))/l.hr};
     })
-    .filter(x=>x.raw>=0.65&&x.raw<=0.82)
+    .filter(x=>x.raw>=EFFLO()&&x.raw<=EFFHI())
     .sort((a,b)=>a.l.date<b.l.date?-1:1);
   /* 強度が違う練習は、効率を並べても意味がないので外す。外したことは伝える */
   const out=state.logs.filter(l=>TYPE(l.type).run&&l.hr>0&&l.dist>=3&&l.sec>0)
-    .filter(l=>l.hr/m.v>0.82);
-  const help='<p class="hint">ジョグの範囲（心拍が最大の65〜82%）で3 km以上走った記録だけを並べています。'+
+    .filter(l=>hrFrac(l.hr)>EFFHI());
+  const help='<p class="hint">ジョグの範囲（'+FRACNM()+'の '+Math.round(EFFLO()*100)+'〜'+
+    Math.round(EFFHI()*100)+'%）で3 km以上走った記録だけを並べています。'+
     '<b>効率＝心拍1拍あたりに進んだ距離（m）</b>。数字が増えていれば、同じ心拍でより速く走れる'+
     '体になったということです。ペースと効率は、時計が止まっていた時間が分かる記録では'+
     'それを除いて計算しています。<br>'+
@@ -946,7 +969,7 @@ function renderEff(){
   const mx=Math.max.apply(null,rows.map(x=>x.eff));
   let h='<div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="num">距離</th>'+
     '<th class="num">時間</th><th class="num">ペース</th><th class="num">心拍</th>'+
-    '<th class="num">最大比</th>'+
+    '<th class="num">強度</th>'+
     '<th class="num">効率<small style="font-weight:400;color:var(--ink-3)"> m/拍</small></th>'+
     '<th></th></tr></thead><tbody>';
   rows.forEach((x,i)=>{
@@ -1001,6 +1024,7 @@ function renderCfg(){
   $("#fGoal").value=fmtSec(state.cfg.goal);
   $("#fAge").value=state.cfg.age||"";
   $("#fMax").value=state.cfg.maxhr||"";
+  $("#fRest").value=state.cfg.resthr||"";
   const df=document.getElementById("fDriveFolder");
   if(df&&document.activeElement!==df)df.value=state.cfg.driveFolder||"";
   document.querySelectorAll(".tierBtn").forEach(b=>{
@@ -1131,12 +1155,17 @@ function renderHr(){
   tbl.innerHTML='<thead><tr><th>—</th><th>用途</th><th class="num">心拍</th>'+
     '<th class="num">%</th></tr></thead><tbody>'+
     HRZ.map(z=>{
-      const lo=Math.round(m.v*z.lo), hi=Math.round(m.v*z.hi);
+      const lo=hrOf(z,false), hi=hrOf(z,true);
+      const plo=useHRR()?z.rlo:z.lo, phi=useHRR()?z.rhi:z.hi;
       return '<tr><td><b>'+z.k+'</b></td><td style="white-space:nowrap">'+z.nm+'</td>'+
         '<td class="num">'+lo+'〜'+hi+'</td>'+
-        '<td class="num" style="color:var(--ink-3)">'+Math.round(z.lo*100)+'〜'+Math.round(z.hi*100)+'</td></tr>';
+        '<td class="num" style="color:var(--ink-3)">'+Math.round(plo*100)+'〜'+Math.round(phi*100)+'</td></tr>';
     }).join("")+'</tbody>';
-  note.innerHTML='最大心拍 <b class="mono">'+m.v+'</b> 拍（'+m.src+'）を基準にしています。'+
+  note.innerHTML=(useHRR()
+      ? '最大心拍 <b class="mono">'+m.v+'</b> 拍（'+m.src+'）と安静時心拍 <b class="mono">'+
+        state.cfg.resthr+'</b> 拍から、<b>カルボーネン法（%心拍予備）</b>で計算しています。'
+      : '最大心拍 <b class="mono">'+m.v+'</b> 拍（'+m.src+'）を基準にしています。'+
+        '安静時心拍を入れると、より正確なカルボーネン法に切り替わります。')+
     '<b>ジョグとロング走は '+eCeil()+' 拍を超えないこと。</b>'+
     '超えていたら、その日の練習はジョグではなく閾値走です（docs/03-principles.md）。';
 }
@@ -1302,13 +1331,14 @@ function detailHtml(l){
     if(tot>0){
       const band=(lo,hi)=>keys.filter(k=>k>=lo&&k<hi).reduce((x,k)=>x+a.hrh[k],0);
       const rows=HRZ.map(z=>{
-        const lo=Math.round(m.v*z.lo), hi=z.hi<1?Math.round(m.v*z.hi):9999;
+        const lo=hrOf(z,false), hi=(useHRR()?z.rhi:z.hi)<1?hrOf(z,true):9999;
         return {nm:z.k+' '+z.nm, rng:z.hi<1?lo+'–'+hi:lo+'–', n:band(lo,hi),
                 c:z.k==="E"?"var(--leaf)":z.k==="M"?"var(--water)":z.k==="T"?"var(--warn)":"var(--alert)"};
       });
-      const below=band(0,Math.round(m.v*0.65));
+      const below=band(0,hrOf(HRZ[0],false));
       if(below)rows.unshift({nm:'（Eより下）',rng:'',n:below,c:'var(--line)'});
-      H.push('<h4>心拍ゾーン（最大 '+m.v+' 拍を基準）</h4><div class="zbar">'+
+      H.push('<h4>心拍ゾーン（最大 '+m.v+' 拍'+(useHRR()?'・安静 '+state.cfg.resthr+
+        ' 拍／カルボーネン法':'を基準')+'）</h4><div class="zbar">'+
         rows.map(r=>'<span>'+esc(r.nm)+'</span>'+
           '<span class="mono" style="color:var(--ink-3)">'+r.rng+'</span>'+
           '<span class="mono">'+Math.round(r.n/tot*100)+'% '+'</span>'+
@@ -1406,10 +1436,13 @@ function detailHtml(l){
           '走る間だけきつめに締めると直ることがあります。</p>'));
   }
   if(m&&l.hr){
-    const pct=Math.round(l.hr/m.v*100);
-    const kind=pct<79?"E（ジョグ）":pct<87?"M（レースペース相当）":pct<92?"T（閾値相当）":"I（インターバル相当）";
-    fin.push('平均心拍は最大の <b>'+pct+'%</b>。この練習の実態は <b>'+kind+'</b> です。'+
-      (pct>=79?'ジョグとして走るなら、平均心拍を '+ec+' 拍以下に収めてください。':''));
+    const pct=Math.round(hrFrac(l.hr)*100);
+    const f=hrFrac(l.hr), z=hrZone(f);
+    const low=f<(useHRR()?HRZ[0].rlo:HRZ[0].lo);
+    const kind=low?'E より下（回復走の強度）':z.k+'（'+(z.k==="E"?"ジョグ":
+      z.k==="M"?"レースペース相当":z.k==="T"?"閾値相当":"インターバル相当")+'）';
+    fin.push('平均心拍は'+FRACNM()+'の <b>'+pct+'%</b>。この練習の実態は <b>'+kind+'</b> です。'+
+      (z.k!=="E"?'ジョグとして走るなら、平均心拍を '+ec+' 拍以下に収めてください。':''));
   }
   if(fin.length)H.push('<h4>判定</h4>'+fin.map(x=>'<p class="note">'+x+'</p>').join(""));
   H.push(shareHtml(l));
@@ -2269,6 +2302,10 @@ $("#fAge").addEventListener("change",e=>{
 $("#fMax").addEventListener("change",e=>{
   const v=parseInt(e.target.value,10);
   state.cfg.maxhr=(v>=120&&v<=230)?v:null;save();cfgChanged();render();
+});
+$("#fRest").addEventListener("change",e=>{
+  const v=parseInt(e.target.value,10);
+  state.cfg.resthr=(v>=30&&v<=110)?v:null;save();cfgChanged();render();
 });
 document.querySelectorAll(".tierBtn").forEach(b=>{
   b.addEventListener("click",()=>{state.cfg.tier=b.dataset.tier;save();cfgChanged();render();});
