@@ -686,7 +686,7 @@ async function initSync(){
   },()=>{}));
 }
 
-const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,resthr:null,longDay:6,
+const DEF={cfg:{raceDate:"2027-02-21",goal:18000,tier:"B",age:null,maxhr:null,resthr:null,longDay:6,shoes:{},
   driveFolder:"ランニングログ"},logs:[]};
 let state=load()||JSON.parse(JSON.stringify(DEF));
 function migrate(){
@@ -696,6 +696,9 @@ function migrate(){
   state.cfg.age=Number(state.cfg.age)||null;
   state.cfg.maxhr=Number(state.cfg.maxhr)||null;
   state.cfg.resthr=Number(state.cfg.resthr)||null;
+  /* DEF.cfg との浅いコピーで同じ参照を共有しないよう、必ず作り直す */
+  state.cfg.shoes=Object.assign({},
+    (state.cfg.shoes&&typeof state.cfg.shoes==="object")?state.cfg.shoes:{});
   if(state.cfg.longDay!==5&&state.cfg.longDay!==6)state.cfg.longDay=6;
   if(typeof state.cfg.driveFolder!=="string"||!state.cfg.driveFolder)
     state.cfg.driveFolder=DEF.cfg.driveFolder;
@@ -1693,6 +1696,19 @@ function renderLogs(){
   paintShare();
 }
 
+/* シューズごとの「台帳を使う前に走っていた距離」と「寿命の目安」。
+   アウトソールのゴムが薄い軽量モデルは300〜400 kmと短く、厚底の
+   トレーニングシューズは600〜800 km。靴ごとに違うので既定値任せにしない */
+function shoeCfg(nm){
+  const c=(state.cfg.shoes||{})[nm]||{};
+  return {base:Number(c.base)||0, life:Number(c.life)||600};
+}
+function setShoeCfg(nm,k,v){
+  state.cfg.shoes=Object.assign({},state.cfg.shoes);
+  state.cfg.shoes[nm]=Object.assign({},state.cfg.shoes[nm],{[k]:v});
+  save(); cfgChanged(); render();
+}
+
 function renderShoes(){
   const m=new Map();
   state.logs.forEach(l=>{
@@ -1701,14 +1717,28 @@ function renderShoes(){
   });
   const el=$("#shoePanel");
   if(!m.size){el.innerHTML='<p class="hint" style="margin:0">記録にシューズ名を入れると、'+
-    '累積距離が出ます。500〜700 kmが交換の目安です。</p>';return;}
+    '累積距離が出ます。靴ごとに寿命と、台帳を使う前の距離も設定できます。</p>';return;}
+  const inp=(nm,k,v)=>'<input type="number" min="0" max="2000" step="10" class="shoeNum" '+
+    'data-shoe="'+esc(nm)+'" data-k="'+k+'" value="'+v+'" '+
+    'style="padding:3px 5px;text-align:right">';
   const rows=[...m.entries()].sort((a,b)=>b[1]-a[1]).map(([nm,d])=>{
-    const col=d>=700?"var(--alert)":d>=500?"var(--warn)":"var(--leaf)";
-    return '<tr><td>'+esc(nm)+'</td><td class="num" style="color:'+col+'"><b>'+Math.round(d)+
-      '</b><small> km</small></td></tr>';
+    const c=shoeCfg(nm), tot=c.base+d;
+    const col=tot>=c.life?"var(--alert)":tot>=c.life*0.8?"var(--warn)":"var(--leaf)";
+    return '<tr><td style="min-width:116px">'+esc(nm)+'</td>'+
+      '<td class="num" style="width:82px">'+inp(nm,"base",c.base)+'</td>'+
+      '<td class="num" style="color:var(--ink-3)">'+Math.round(d)+'</td>'+
+      '<td class="num" style="color:'+col+'"><b>'+Math.round(tot)+'</b></td>'+
+      '<td class="num" style="width:82px">'+inp(nm,"life",c.life)+'</td></tr>';
   }).join("");
-  el.innerHTML='<table><tbody>'+rows+'</tbody></table>'+
-    '<p class="hint">500 kmを超えたら交換を検討、700 kmで交換。</p>';
+  el.innerHTML='<div class="tbl-wrap"><table><thead><tr><th>シューズ</th>'+
+    '<th class="num">記録前</th><th class="num">記録</th><th class="num">累計</th>'+
+    '<th class="num">寿命</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<p class="hint"><b>記録前</b>＝この台帳を使いはじめる前に走っていた距離。'+
+    '<b>寿命</b>＝交換の目安（既定600 km）。'+
+    'ゴムの薄い軽量モデルは300〜400 km、厚底のトレーニングシューズは600〜800 km。'+
+    '累計が寿命の8割を超えると色が変わります。<br>'+
+    '<b>距離だけでは決まりません。</b>フォームは履かなくても酸化して硬くなるので、'+
+    '製造から2〜3年経った靴は、走行距離に関係なく寿命です（docs/10-gear.md）。</p>';
   $("#shoeList").innerHTML=[...m.keys()].map(n=>'<option value="'+esc(n)+'">').join("");
 }
 
@@ -2306,6 +2336,13 @@ $("#fMax").addEventListener("change",e=>{
 $("#fRest").addEventListener("change",e=>{
   const v=parseInt(e.target.value,10);
   state.cfg.resthr=(v>=30&&v<=110)?v:null;save();cfgChanged();render();
+});
+/* シューズの欄は描き直すたびに作り直されるので、親側で受ける */
+$("#shoePanel").addEventListener("change",e=>{
+  const t=e.target;
+  if(!t.classList||!t.classList.contains("shoeNum"))return;
+  setShoeCfg(t.dataset.shoe,t.dataset.k,
+    Math.max(0,Math.min(2000,parseInt(t.value,10)||0)));
 });
 document.querySelectorAll(".tierBtn").forEach(b=>{
   b.addEventListener("click",()=>{state.cfg.tier=b.dataset.tier;save();cfgChanged();render();});
