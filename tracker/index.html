@@ -719,6 +719,7 @@ function migrate(){
     if(l.an&&typeof l.an!=="object")l.an=null;
     if(typeof l.src!=="string")l.src="";
     if(typeof l.file!=="string")l.file="";
+    if(typeof l.sport!=="string")l.sport="";
   });
   state.logs.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
 }
@@ -1919,12 +1920,20 @@ function analyzeFit(recs,sn){
   return {mv:Math.round(mv),st:Math.round(st),ap,sp,stops,hrh,dc,lk};
 }
 
-/* sport（5）から、この台帳の種別のあたりをつける */
-function guessType(sp,km){
-  if(sp===2||sp===5||sp===11||sp===17)return "X";   /* 自転車・水泳・歩行・ハイキング */
+/* 種別のあたりをつける。
+   既知の種目コードを並べて拾う方式だと、時計が別のコードを振ったときに
+   取りこぼす（実際にハイキングがランとして入った）。ランだけを通して、
+   あとは全部クロスにする。種目コードを入れない時計もあるので、中身でも見る */
+function guessType(sp,km,cad,sec){
+  if(sp!=null&&sp!==1&&sp!==0)return "X";          /* ラン・未設定以外はクロス */
+  if(!cad)return "X";                              /* 走ればピッチは必ず記録される */
+  if(km>0&&sec>0&&sec/km>720)return "X";           /* 12分/kmより遅い＝走行ではない */
   return km>=15?"L":"E";
 }
-const SPORT={0:"",1:"ラン",2:"バイク",5:"スイム",11:"ウォーク",17:"ハイク"};
+const SPORT={0:"",1:"ラン",2:"バイク",4:"マシン",5:"スイム",10:"トレーニング",
+  11:"ウォーク",12:"クロカンスキー",13:"スキー",14:"スノーボード",15:"ローイング",
+  16:"登山",17:"ハイク",19:"パドリング",25:"インラインスケート",26:"クライミング",
+  41:"カヤック"};
 
 function fitToRecord(s,off,fname,an){
   const st=s[2], tt=(s[8]!=null?s[8]:s[7]), dm=s[9];
@@ -1934,14 +1943,15 @@ function fitToRecord(s,off,fname,an){
   if(isNaN(dt))return null;
   const km=dm!=null?Math.round(dm/100/1000*100)/100:0;
   const sec=Math.round(tt/1000);
+  const cad=s[18]!=null?s[18]*2:null;              /* 片脚rpm → spm */
   return {
     date:dt.toISOString().slice(0,10),
     start:dt.toISOString().slice(11,16),
-    type:guessType(s[5],km),
-    sport:SPORT[s[5]]!=null?SPORT[s[5]]:"",
+    type:guessType(s[5],km,cad,sec),
+    sport:SPORT[s[5]]!=null?SPORT[s[5]]:(s[5]!=null?"種目"+s[5]:""),
     dist:km, sec:sec,
     hr:s[16]!=null?s[16]:null,
-    cad:s[18]!=null?s[18]*2:null,          /* 片脚rpm → spm */
+    cad:cad,
     asc:s[22]!=null?s[22]:null,
     kcal:s[11]!=null?s[11]:null,
     file:fname, an:an||null
@@ -2122,7 +2132,7 @@ $("#fitPreview").addEventListener("click",e=>{
       lid:"l"+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36),
       date:r.date,type:r.type,dist:r.dist,sec:r.sec,
       rpe:r.rpe||null,hr:r.hr,wt:null,pain:0,cad:r.cad,asc:r.asc,kcal:r.kcal,
-      shoe:"",memo:"",src:"fit",file:r.file,an:r.an||null
+      shoe:"",memo:"",src:"fit",file:r.file,sport:r.sport||"",an:r.an||null
     });
   });
   added.forEach(l=>state.logs.push(l));
